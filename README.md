@@ -11,7 +11,7 @@
 | Field | Value |
 |-------|-------|
 | **Project code** | `PRJ-01-GREENHOUSE` |
-| **Team size** | 2 – 3 students |
+| **Team size** | 2 students |
 | **Team Name** | Karim Ehab & Ahmed Mohsen |
 | **Build window** | Days 11 – 15 (September 13 – September 17 , 2026) |
 | **Demo & submission** | September 17 , 2026 |
