@@ -13,7 +13,7 @@
 | **Project code** | `PRJ-01-GREENHOUSE` |
 | **Team size** | 2 students |
 | **Team Name** | Karim Ehab & Ahmed Mohsen |
-| **Build window** | Days 11 – 15 (September 13 – September 17 , 2026) |
+| **Build window** | Days 11 – 15 (August 30 – September 17 , 2026) |
 | **Demo & submission** | September 17 , 2026 |
 | **Dominant skill** | Multi-sensor closed-loop control with hysteresis |
 | **MCU** | ATmega32A @ 8 MHz |
