@@ -72,4 +72,23 @@
 #define CS10 0
 #define TOV1 2
 
+/* Timer2 registers */
+#define TIMER2_REG_TCCR2 (*(volatile uint8 *)0x45)
+#define TIMER2_REG_TCNT2 (*(volatile uint8 *)0x44)
+#define TIMER2_REG_OCR2  (*(volatile uint8 *)0x43)
+
+/* Timer2 bit positions */
+#define FOC2  7
+#define WGM20 6
+#define COM21 5
+#define COM20 4
+#define WGM21 3
+#define CS22  2
+#define CS21  1
+#define CS20  0
+
+/* Timer2 interrupt bits */
+#define OCIE2 7
+#define TOIE2 6
+
 #endif /* TIMER_PRIVATE_H */

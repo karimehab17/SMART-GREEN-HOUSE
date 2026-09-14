@@ -51,6 +51,12 @@ STD_ReturnType TIMER0_PWM(uint8 Copy_u8DutyPercent);
  */
 STD_ReturnType TIMER0_Stop(void);
 
+STD_ReturnType TIMER0_Start(uint8 Copy_u8Prescaler);
+STD_ReturnType TIMER0_SetCompareValue(uint8 Copy_u8Value);
+STD_ReturnType TIMER0_SetCompareOutput(uint8 Copy_u8Mode);
+STD_ReturnType TIMER0_SetOverflowInterrupt(uint8 Copy_u8State);
+STD_ReturnType TIMER0_SetCompareInterrupt(uint8 Copy_u8State);
+
 /*========================== Timer1 — 16-bit ==========================*/
 
 /*
@@ -77,4 +83,24 @@ STD_ReturnType TIMER1_PWM(uint16 Copy_u16FrequencyHz, uint8 Copy_u8DutyPercent);
  */
 STD_ReturnType TIMER1_Stop(void);
 
+
+/*========================== Timer2 — 8-bit PWM ==========================*/
+
+/*
+ * Fast PWM output on OC2 (PD7).
+ * Duty cycle: 0..100%
+ */
+STD_ReturnType TIMER2_PWM(uint8 Copy_u8DutyPercent);
+
+/*
+ * Generate a buzzer tone using Timer2 Fast PWM.
+ * Supported frequencies are selected using the closest Timer2 prescaler.
+ */
+STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz);
+
+/*
+ * Stop Timer2 PWM and disconnect OC2.
+ */
+STD_ReturnType TIMER2_Stop(void);
+    
 #endif /* TIMER_INTERFACE_H */

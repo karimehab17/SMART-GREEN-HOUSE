@@ -1,25 +1,27 @@
-#include "stddef.h"
-#include "../LIB/STD_TYPES.h"
-#include "../MCAL/GPIO/GPIO_interface.h"
+#include <avr/interrupt.h>
 
+#include "STD_TYPES.h"
+#include "GPIO_interface.h"
+#include "TIMER_interface.h"
+
+ISR(TIMER0_OVF_vect)
+{
+    GPIO_SetPinValue(GPIO_PORTB, GPIO_PIN0, GPIO_HIGH);
+}
 
 int main(void)
 {
-    uint8 switches;
+    GPIO_SetPinDirection(GPIO_PORTB, GPIO_PIN0, GPIO_OUTPUT);
+    GPIO_SetPinValue(GPIO_PORTB, GPIO_PIN0, GPIO_LOW);
 
-    /* PORTA -> Output */
-    GPIO_SetPortDirection(GPIO_PORTA, 0xFF);
+    TIMER0_Init(0); // NORMAL mode
+    TIMER0_SetOverflowInterrupt(1u);
+    TIMER0_Start(5u); // Prescaler = 1024
 
-    /* PORTB -> Input */
-    GPIO_SetPortDirection(GPIO_PORTB, 0x00);
+    sei();
 
     while (1)
     {
-        /* Read switches */
-        GPIO_GetPortValue(GPIO_PORTB, &switches);
-
-        /* Display switches on LEDs */
-        GPIO_SetPortValue(GPIO_PORTA, switches);
     }
 
     return 0;

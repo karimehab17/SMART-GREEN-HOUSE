@@ -1,4 +1,4 @@
-#include <avr/io.h>
+
 
 #include "STD_TYPES.h"
 #include "TIMER_interface.h"
@@ -304,6 +304,171 @@ STD_ReturnType TIMER1_SetCompareA(uint16 Copy_u16Value)
 STD_ReturnType TIMER1_SetICR1(uint16 Copy_u16Value)
 {
     TIMER1_REG_ICR1 = Copy_u16Value;
+
+    return E_OK;
+}
+
+
+/* =========================================================
+ *                         TIMER2
+ * ========================================================= */
+
+/*
+ * Timer2 Fast PWM
+ *
+ * WGM21 = 1
+ * WGM20 = 1
+ *
+ * OC2 = PD7
+ */
+
+STD_ReturnType TIMER2_PWM(uint8 Copy_u8DutyPercent)
+{
+    uint8 Local_u8OCRValue;
+
+    if (Copy_u8DutyPercent > 100u)
+    {
+        return E_NOK;
+    }
+
+    /*
+     * Fast PWM, non-inverting mode
+     *
+     * WGM21 = 1
+     * WGM20 = 1
+     * COM21 = 1
+     * COM20 = 0
+     */
+    TIMER2_REG_TCCR2 &= ~((1u << WGM21) |
+                          (1u << WGM20) |
+                          (1u << COM21) |
+                          (1u << COM20));
+
+    TIMER2_REG_TCCR2 |= (1u << WGM21) |
+                        (1u << WGM20) |
+                        (1u << COM21);
+
+    /*
+     * OCR2 = duty * 255 / 100
+     */
+    Local_u8OCRValue =
+        (uint8)(((uint16)Copy_u8DutyPercent * 255u) / 100u);
+
+    TIMER2_REG_OCR2 = Local_u8OCRValue;
+
+    /*
+     * Prescaler = 64
+     *
+     * F_PWM = 8MHz / (64 * 256)
+     *       ≈ 488 Hz
+     */
+    TIMER2_REG_TCCR2 &= ~((1u << CS22) |
+                          (1u << CS21) |
+                          (1u << CS20));
+
+    TIMER2_REG_TCCR2 |= (1u << CS22) |
+                        (1u << CS21);
+
+    return E_OK;
+}
+
+
+STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz)
+{
+    if (Copy_u16FrequencyHz == 0u)
+    {
+        return E_NOK;
+    }
+
+    /*
+     * Fast PWM Timer2 has fixed TOP = 255.
+     *
+     * Available frequencies at F_CPU = 8 MHz:
+     *
+     * N = 1    -> 31250 Hz
+     * N = 8    -> 3906 Hz
+     * N = 32   -> 976 Hz
+     * N = 64   -> 488 Hz
+     * N = 128  -> 244 Hz
+     * N = 256  -> 122 Hz
+     * N = 1024 -> 30 Hz
+     *
+     * For buzzer we select the closest useful range.
+     */
+
+    /* Fast PWM + non-inverting output */
+    TIMER2_REG_TCCR2 &= ~((1u << WGM21) |
+                          (1u << WGM20) |
+                          (1u << COM21) |
+                          (1u << COM20));
+
+    TIMER2_REG_TCCR2 |= (1u << WGM21) |
+                        (1u << WGM20) |
+                        (1u << COM21);
+
+    /* 50% duty cycle */
+    TIMER2_REG_OCR2 = 127u;
+
+    /* Select prescaler */
+    TIMER2_REG_TCCR2 &= ~((1u << CS22) |
+                          (1u << CS21) |
+                          (1u << CS20));
+
+    if (Copy_u16FrequencyHz >= 15000u)
+    {
+        /* N = 1 -> 31250 Hz */
+        TIMER2_REG_TCCR2 |= (1u << CS20);
+    }
+    else if (Copy_u16FrequencyHz >= 2000u)
+    {
+        /* N = 8 -> 3906 Hz */
+        TIMER2_REG_TCCR2 |= (1u << CS21);
+    }
+    else if (Copy_u16FrequencyHz >= 700u)
+    {
+        /* N = 32 -> 976 Hz */
+        TIMER2_REG_TCCR2 |= (1u << CS21) |
+                            (1u << CS20);
+    }
+    else if (Copy_u16FrequencyHz >= 350u)
+    {
+        /* N = 64 -> 488 Hz */
+        TIMER2_REG_TCCR2 |= (1u << CS22);
+    }
+    else if (Copy_u16FrequencyHz >= 170u)
+    {
+        /* N = 128 -> 244 Hz */
+        TIMER2_REG_TCCR2 |= (1u << CS22) |
+                            (1u << CS20);
+    }
+    else if (Copy_u16FrequencyHz >= 70u)
+    {
+        /* N = 256 -> 122 Hz */
+        TIMER2_REG_TCCR2 |= (1u << CS22) |
+                            (1u << CS21);
+    }
+    else
+    {
+        /* N = 1024 -> 30.5 Hz */
+        TIMER2_REG_TCCR2 |= (1u << CS22) |
+                            (1u << CS21) |
+                            (1u << CS20);
+    }
+
+    return E_OK;
+}
+
+
+STD_ReturnType TIMER2_Stop(void)
+{
+    /* Stop Timer2 clock */
+    TIMER2_REG_TCCR2 &= ~((1u << CS22) |
+                          (1u << CS21) |
+                          (1u << CS20));
+
+    /* Disconnect OC2 */
+    TIMER2_REG_TCCR2 &= ~((1u << COM21) |
+                          (1u << COM20));
 
     return E_OK;
 }
