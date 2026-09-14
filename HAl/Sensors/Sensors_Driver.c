@@ -6,20 +6,14 @@
 
 STD_ReturnType Sensors_Init(void)
 {
-    ADC_ConfigType config =
-    {
-        .uint8ReferenceVoltage = SENSOR_ADC_REFERENCE,
-        .uint8Prescaler      = SENSOR_ADC_PRESCALER
-    };
-
-    return ADC_Init(&config);
+    return ADC_Init(SENSOR_ADC_REFERENCE, SENSOR_ADC_PRESCALER);
 }
 
-STD_ReturnType Sensors_ReadRaw(uint16 *tempRaw,
-                              uint16 *soilRaw,
-                              uint16 *lightRaw)
+STD_ReturnType Sensors_ReadRaw(uint16 *tempRaw,uint16 *soilRaw,uint16 *lightRaw)
 {
-    if ((tempRaw == NULL) || (soilRaw == NULL) || (lightRaw == NULL))
+    if ((tempRaw == NULL) ||
+        (soilRaw == NULL) ||
+        (lightRaw == NULL))
     {
         return E_NOK;
     }
@@ -42,28 +36,30 @@ STD_ReturnType Sensors_ReadRaw(uint16 *tempRaw,
     return E_OK;
 }
 
-STD_ReturnType Sensors_ScaleTempC(uint16_h raw, uint8_h *tempC)
+STD_ReturnType Sensors_ScaleTempC(uint16 raw, uint8 *tempC)
 {
     if (tempC == NULL)
     {
         return E_NOK;
     }
 
-    uint32_h scaled = ((uint32_h)raw * 50UL + 511UL) / 1023UL;
-    *tempC = (uint8_h)scaled;
+    uint32 scaled = ((uint32)raw * 50UL + 511UL) / 1023UL;
+
+    *tempC = (uint8)scaled;
 
     return E_OK;
 }
 
-STD_ReturnType Sensors_ScalePct(uint16_h raw, uint8_h *percent)
+STD_ReturnType Sensors_ScalePct(uint16 raw, uint8 *percent)
 {
     if (percent == NULL)
     {
         return E_NOK;
     }
 
-    uint32_h scaled = ((uint32_h)raw * 100UL + 511UL) / 1023UL;
-    *percent = (uint8_h)scaled;
+    uint32 scaled = ((uint32)raw * 100UL + 511UL) / 1023UL;
+
+    *percent = (uint8)scaled;
 
     return E_OK;
 }
