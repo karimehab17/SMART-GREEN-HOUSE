@@ -1,123 +1,72 @@
 #ifndef INTERRUPT_INTERFACE_H
 #define INTERRUPT_INTERFACE_H
 
-#include "../../Service/STD_Types.h"
-#include "interrupt_registers.h"
-
-/* ================================================================================
- *  EXTERNAL INTERRUPT (EXTI) DRIVER - PUBLIC INTERFACE (ATmega32)
- *  ------------------------------------------------------------------------------
- *  Configures and controls the three external interrupt lines INT0/INT1/INT2.
- *  Typical usage:
- *      1) EXTI_SetCallBack(EXTI_INT0, myHandler);
- *      2) EXTI_Init(&cfg);            // sets sense control + enables the line
- *      3) EXTI_EnableGlobalInterrupt();
- *  When the configured edge/level occurs, the driver's ISR calls myHandler().
- * ============================================================================== */
-
-/* ---------------- Interrupt Lines ---------------- */
-/**
- * @brief Selects which external interrupt line an API call targets.
- *  - EXTI_INT0 : pin PD2, supports level + edge sensing.
- *  - EXTI_INT1 : pin PD3, supports level + edge sensing.
- *  - EXTI_INT2 : pin PB2, edge sensing only (falling or rising).
+/*
+ * Author: Ahmed Ellamie
+ * Email:  ahmed.ellamiee@gmail.com
+ *
+ * MCAL INTERRUPT — public API for ATmega32 global I-bit and EXTI0/1/2.
+ * Include this header from HAL, Logic, and main. Do not include INTERRUPT_private.h there.
+ *
+ * Pins: INT0 = PD2, INT1 = PD3, INT2 = PB2 (input, usually pull-up).
  */
-typedef enum
-{
-    EXTI_INT0 = 0,
-    EXTI_INT1 = 1,
-    EXTI_INT2 = 2,
-    EXTI_LINE_MAX      /* Sentinel used for range checking - not a real line */
-} EXTI_LineType;
 
-/* ---------------- Sense (Trigger) Control ---------------- */
-/**
- * @brief Chooses the signal condition that triggers the interrupt.
- *  - EXTI_SENSE_LOW_LEVEL  : Fires while the pin is held low  (INT0/INT1 only).
- *  - EXTI_SENSE_ANY_CHANGE : Fires on any logic change        (INT0/INT1 only).
- *  - EXTI_SENSE_FALLING    : Fires on a high-to-low transition (all lines).
- *  - EXTI_SENSE_RISING     : Fires on a low-to-high transition (all lines).
- * @note For INT2 only EXTI_SENSE_FALLING and EXTI_SENSE_RISING are valid.
+#include "STD_TYPES.h"
+#include "INTERRUPT_private.h"
+#include "stddef.h"
+
+/* Callback type for external interrupt handlers */
+typedef void (*EXTI_CallbackType)(void);
+extern EXTI_CallbackType EXTI_pfCallBackArr[3];
+
+/* ---------------- External interrupt sources ---------------- */
+#define EXTI_INT0             0u
+#define EXTI_INT1             1u
+#define EXTI_INT2             2u
+
+/* ---------------- Sense control (INT0 / INT1 via MCUCR) ---------------- */
+#define EXTI_LOW_LEVEL        0u    /* INT0 / INT1 only */
+#define EXTI_ANY_CHANGE       1u    /* INT0 / INT1 only */
+#define EXTI_FALLING_EDGE     2u    /* INT0 / INT1 / INT2 */
+#define EXTI_RISING_EDGE      3u    /* INT0 / INT1 / INT2 */
+
+/*
+ * Description : Set the global interrupt flag (I-bit, sei).
  */
-typedef enum
-{
-    EXTI_SENSE_LOW_LEVEL  = 0,
-    EXTI_SENSE_ANY_CHANGE = 1,
-    EXTI_SENSE_FALLING    = 2,
-    EXTI_SENSE_RISING     = 3
-} EXTI_SenseType;
-
-/* ---------------- Configuration Structure ---------------- */
-/**
- * @brief Parameters consumed by EXTI_Init().
- * @var EXTI_ConfigType::line   External interrupt line to configure (EXTI_LineType).
- * @var EXTI_ConfigType::sense  Trigger condition for that line (EXTI_SenseType).
+STD_ReturnType INTERRUPT_EnableGlobal(void);
+/*
+ * Description : Clear the global interrupt flag (cli).
  */
-typedef struct
-{
-    EXTI_LineType  line;
-    EXTI_SenseType sense;
-} EXTI_ConfigType;
-
-/* ---------------- Callback Pointer Type ---------------- */
-/**
- * @brief Type of the user handler invoked from the EXTI ISR. Runs in interrupt
- *        context, so keep it short and avoid blocking calls.
+STD_ReturnType INTERRUPT_DisableGlobal(void);
+/*
+ * Description : Configure INT0, INT1, or INT2 sense bits. Does not enable the source.
+ *               INT2 accepts only falling or rising edge.
  */
-typedef void (*EXTI_CallBackType)(void);
+STD_ReturnType EXTI_SetSense(uint8 Copy_u8Int, uint8 Copy_u8Sense);
 
-/* ================================================================================
- *  FUNCTION PROTOTYPES
- * ============================================================================== */
-
-/**
- * @brief  Configures the sense control for the selected line and enables it.
- * @param  addConfig  Pointer to a populated configuration structure.
- * @return STD_ReturnType  E_OK on success; E_NOK on NULL pointer, invalid line,
- *                         or an unsupported sense mode for that line (e.g. level
- *                         sensing requested on INT2).
+/*
+ * Description : Clear the matching flag in GIFR (write 1), then set the enable
+ *               bit in GICR (INT0 / INT1 / INT2). Call INTERRUPT_EnableGlobal after this.
  */
-STD_ReturnType EXTI_Init(const EXTI_ConfigType *addConfig);
+STD_ReturnType EXTI_Enable(uint8 Copy_u8Int);
 
-/**
- * @brief  Enables (unmasks) the selected external interrupt line in GICR.
- * @param  line  Interrupt line to enable.
- * @return STD_ReturnType  E_OK/E_NOK.
+/*
+* Description : Clear the GICR enable bit for INT0, INT1, or INT2.
  */
-STD_ReturnType EXTI_Enable(EXTI_LineType line);
+STD_ReturnType EXTI_Disable(uint8 Copy_u8Int);
+/*
+ * Description : Clear a stale INTF0 / INTF1 / INTF2 flag (write 1 to GIFR).
+ */
+STD_ReturnType EXTI_ClearFlag(uint8 Copy_u8Int);
+/*
+ * Description : Register the function the ISR calls when the source fires.
+ *               Register it before EXTI_Init, so no edge can arrive with no
+ *               handler in place. Registering again replaces the old one.
+ * Parameters  : Copy_u8Int      — EXTI_INT0 / EXTI_INT1 / EXTI_INT2.
+ *               Copy_pfCallback — void function taking void, must not be NULL.
+ * Return      : E_NOK for an unknown source or a NULL function pointer.
+ */
+STD_ReturnType EXTI_SetCallback(uint8 Copy_u8Int, EXTI_CallbackType Copy_pfCallback);
 
-/**
- * @brief  Disables (masks) the selected external interrupt line in GICR.
- * @param  line  Interrupt line to disable.
- * @return STD_ReturnType  E_OK/E_NOK.
- */
-STD_ReturnType EXTI_Disable(EXTI_LineType line);
-
-/**
- * @brief  Updates only the trigger condition (sense control) of a line without
- *         changing its enable state.
- * @param  line   Interrupt line to reconfigure.
- * @param  sense  New trigger condition.
- * @return STD_ReturnType  E_OK/E_NOK (E_NOK if sense unsupported for the line).
- */
-STD_ReturnType EXTI_SetSenseControl(EXTI_LineType line, EXTI_SenseType sense);
-
-/**
- * @brief  Registers the callback invoked when the given line fires.
- * @param  line      Interrupt line the callback belongs to.
- * @param  callBack  Pointer to a void(void) function; must not be NULL.
- * @return STD_ReturnType  E_OK/E_NOK.
- */
-STD_ReturnType EXTI_SetCallBack(EXTI_LineType line, EXTI_CallBackType callBack);
-
-/**
- * @brief  Sets the global interrupt enable bit (I-bit of SREG). Equivalent to sei().
- */
-void EXTI_EnableGlobalInterrupt(void);
-
-/**
- * @brief  Clears the global interrupt enable bit (I-bit of SREG). Equivalent to cli().
- */
-void EXTI_DisableGlobalInterrupt(void);
 
 #endif /* INTERRUPT_INTERFACE_H */

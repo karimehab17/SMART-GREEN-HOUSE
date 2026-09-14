@@ -1,88 +1,70 @@
 #ifndef ADC_INTERFACE_H
 #define ADC_INTERFACE_H
 
-#include "../../Service/STD_Types.h"
-#include "adc_registers.h"
-
-/* ---------------- Voltage Reference Options (REFS1:REFS0) ---------------- */
-#define ADC_REF_AREF               0   /* External AREF pin, internal Vref turned off        */
-#define ADC_REF_AVCC               1   /* AVCC with external capacitor on AREF pin           */
-#define ADC_REF_INTERNAL_2_56V     3   /* Internal 2.56V reference, capacitor on AREF pin    */
-
-/* ---------------- Clock Prescaler Options (ADPS2:ADPS0) ---------------- */
-#define ADC_PRESCALER_2      1
-#define ADC_PRESCALER_4      2
-#define ADC_PRESCALER_8      3
-#define ADC_PRESCALER_16     4
-#define ADC_PRESCALER_32     5
-#define ADC_PRESCALER_64     6
-#define ADC_PRESCALER_128    7
-
-/* ---------------- Input Channels ---------------- */
-#define ADC_CHANNEL0    0
-#define ADC_CHANNEL1    1
-#define ADC_CHANNEL2    2
-#define ADC_CHANNEL3    3
-#define ADC_CHANNEL4    4
-#define ADC_CHANNEL5    5
-#define ADC_CHANNEL6    6
-#define ADC_CHANNEL7    7
-
-/* ---------------- Conversion status ---------------- */
-#define ADC_CONVERSION_BUSY      0
-#define ADC_CONVERSION_DONE      1
-
-/**
- * @brief Configuration used to initialize the ADC peripheral.
+/*
+ * Author: Ahmed Ellamie
+ * Email:  ahmed.ellamiee@gmail.com
+ *
+ * MCAL ADC — public API for the ATmega32 10-bit ADC (channels ADC0..ADC7).
+ * Include this header from HAL, Logic, and main. Do not include ADC_private.h there.
  */
-typedef struct
-{
-    uint8_h uint8ReferenceVoltage;   /* One of ADC_REF_x         */
-    uint8_h uint8Prescaler;          /* One of ADC_PRESCALER_x   */
-} ADC_ConfigType;
 
-/**
- * @brief Initializes the ADC peripheral with the given reference voltage
- *        and clock prescaler, then enables it.
- * @param addConfig  Pointer to the desired configuration.
- * @return STD_ReturnType  E_OK/E_NOK
- */
-STD_ReturnType ADC_Init(const ADC_ConfigType *addConfig);
+#include "STD_TYPES.h"
 
-/**
- * @brief Disables the ADC peripheral.
- * @return STD_ReturnType  E_OK/E_NOK
- */
-STD_ReturnType ADC_DeInit(void);
+/* ---------------- Voltage reference (ADMUX REFS1:0) ---------------- */
+#define ADC_REF_AREF          0u    /* AREF pin, internal Vref off */
+#define ADC_REF_AVCC          1u    /* AVCC with cap on AREF      */
+#define ADC_REF_INTERNAL_2V56 3u    /* Internal 2.56 V            */
 
-/**
- * @brief Selects the given channel and starts a single conversion.
- *        Does not wait for the conversion to finish.
- * @param uint8Channel  ADC_CHANNEL0 .. ADC_CHANNEL7
- * @return STD_ReturnType  E_OK/E_NOK
- */
-STD_ReturnType ADC_StartConversion(uint8_h uint8Channel);
+/* ---------------- Result adjust (ADMUX ADLAR) ---------------- */
+#define ADC_RIGHT_ADJUST      0u    /* 10-bit value in ADC = ADCL | (ADCH << 8) */
+#define ADC_LEFT_ADJUST       1u
 
-/**
- * @brief Checks whether the previously started conversion has finished.
- * @return uint8_h  ADC_CONVERSION_DONE / ADC_CONVERSION_BUSY
- */
-uint8_h ADC_IsConversionComplete(void);
+/* ---------------- Prescaler (ADCSRA ADPS2:0) — F_ADC = F_CPU / N ---------------- */
+#define ADC_PRESC_2           1u
+#define ADC_PRESC_4           2u
+#define ADC_PRESC_8           3u
+#define ADC_PRESC_16          4u
+#define ADC_PRESC_32          5u
+#define ADC_PRESC_64          6u
+#define ADC_PRESC_128         7u
 
-/**
- * @brief Reads the result of the last completed conversion.
- * @param puint16Result  Pointer to store the 10-bit result (0-1023).
- * @return STD_ReturnType  E_OK/E_NOK
- */
-STD_ReturnType ADC_ReadResult(uint16_h *puint16Result);
+/* ---------------- Single-ended channels (ADMUX MUX4:0) ---------------- */
+#define ADC_CHANNEL_0         0u
+#define ADC_CHANNEL_1         1u
+#define ADC_CHANNEL_2         2u
+#define ADC_CHANNEL_3         3u
+#define ADC_CHANNEL_4         4u
+#define ADC_CHANNEL_5         5u
+#define ADC_CHANNEL_6         6u
+#define ADC_CHANNEL_7         7u
 
-/**
- * @brief Blocking read: starts a conversion on the given channel, waits
- *        until it finishes, then returns the result.
- * @param uint8Channel   ADC_CHANNEL0 .. ADC_CHANNEL7
- * @param puint16Result  Pointer to store the 10-bit result (0-1023).
- * @return STD_ReturnType  E_OK/E_NOK
+/*
+ * Description : Enable the ADC, pick the reference and the prescaler.
+ *               Typical kit: ADC_REF_AVCC and ADC_PRESC_64 at 8 MHz (~125 kHz).
  */
-STD_ReturnType ADC_ReadChannelBlocking(uint8_h uint8Channel, uint16_h *puint16Result);
+STD_ReturnType ADC_Init(uint8 Copy_u8Ref, uint8 Copy_u8Prescaler);
+/*
+ * Description : Select the channel (0..7), start one conversion, wait for ADIF,
+ *               then write the 10-bit result to *Copy_pu16Reading (0..1023).
+ */
+STD_ReturnType ADC_ReadChannel(uint8 Copy_u8Channel, uint16 *Copy_pu16Reading);
+
+/*
+ * Description : Start a conversion on a channel already selected; do not wait.
+ */
+STD_ReturnType ADC_StartConversion(uint8 Copy_u8Channel);
+
+/*
+ * Description : Return E_OK and the last 10-bit result if ADIF is set.
+ *               Return E_NOK if the conversion is still running.
+ */
+STD_ReturnType ADC_GetResult(uint16 *Copy_pu16Reading);
+
+/*
+ * Description : Enable or disable the ADC complete interrupt (ADIE).
+ *               Copy_u8State: 1 = enable, 0 = disable. Call sei() from INTERRUPT.
+ */
+STD_ReturnType ADC_SetInterrupt(uint8 Copy_u8State);
 
 #endif /* ADC_INTERFACE_H */

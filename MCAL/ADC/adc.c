@@ -1,169 +1,126 @@
-#include "../../Service/STD_Types.h"
-#include "../../Service/Bit_Math.h"
-#include "adc_registers.h"
-#include "adc_interface.h"
+/*
+ * Author: Ahmed Ellamie
+ * Email:  ahmed.ellamiee@gmail.com
+ *
+ * STUDENT TASK — ADC.c  (ATmega32, 10-bit)
+ * Implement every prototype from ADC_interface.h.
+ */
+
+#include "STD_TYPES.h"
+#include "ADC_interface.h"
+#include "ADC_private.h"
+#include "stddef.h"
+#include "util/atomic.h"
+#include "util/delay.h"
+
 
 /*
- * Initializes the ADC peripheral: selects the voltage reference, selects the
- * clock prescaler, and enables the module.
+ * ADC_Init
+ * 1. Reject an unknown reference or prescaler.
+ * 2. Write REFS1:0 (and ADLAR = 0 for right adjust) in ADMUX.
+ * 3. Write ADPS2:0, then set ADEN. Do not start a conversion yet.
+ * 4. Target ADC clock 50..200 kHz (8 MHz / 64 = 125 kHz).
  */
-STD_ReturnType ADC_Init(const ADC_ConfigType *addConfig)
+STD_ReturnType ADC_Init(uint8 Copy_u8Ref, uint8 Copy_u8Prescaler)
 {
-    STD_ReturnType local_Status = E_OK;
-
-    if (addConfig == NULL)
+    if (Copy_u8Ref != ADC_REF_AREF &&
+        Copy_u8Ref != ADC_REF_AVCC &&
+        Copy_u8Ref != ADC_REF_INTERNAL_2V56)
     {
-        local_Status = E_NOK;
-    }
-    else
-    {
-        /* Reference voltage (REFS1:REFS0) */
-        CLR_BIT(ADC_ADMUX_REG, ADC_REFS0_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_REFS1_BIT);
-        if (GET_BIT(addConfig->uint8ReferenceVoltage, 0))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_REFS0_BIT);
-        }
-        if (GET_BIT(addConfig->uint8ReferenceVoltage, 1))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_REFS1_BIT);
-        }
-
-        /* Right-adjusted result */
-        CLR_BIT(ADC_ADMUX_REG, ADC_ADLAR_BIT);
-
-        /* Default channel 0 */
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX0_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX1_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX2_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX3_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX4_BIT);
-
-        /* Clock prescaler (ADPS2:ADPS0) */
-        CLR_BIT(ADC_ADCSRA_REG, ADC_ADPS0_BIT);
-        CLR_BIT(ADC_ADCSRA_REG, ADC_ADPS1_BIT);
-        CLR_BIT(ADC_ADCSRA_REG, ADC_ADPS2_BIT);
-        if (GET_BIT(addConfig->uint8Prescaler, 0))
-        {
-            SET_BIT(ADC_ADCSRA_REG, ADC_ADPS0_BIT);
-        }
-        if (GET_BIT(addConfig->uint8Prescaler, 1))
-        {
-            SET_BIT(ADC_ADCSRA_REG, ADC_ADPS1_BIT);
-        }
-        if (GET_BIT(addConfig->uint8Prescaler, 2))
-        {
-            SET_BIT(ADC_ADCSRA_REG, ADC_ADPS2_BIT);
-        }
-
-        /* Enable the ADC module */
-        SET_BIT(ADC_ADCSRA_REG, ADC_ADEN_BIT);
+        return E_NOK;
     }
 
-    return local_Status;
+    if (Copy_u8Prescaler != ADC_PRESC_64 &&
+        Copy_u8Prescaler != ADC_PRESC_128)
+    {
+        return E_NOK;
+    }
+
+    ADMUX = (ADMUX & ~(0xC0)) |
+            ((Copy_u8Ref << 6) & 0xC0);
+
+    ADMUX &= ~(1 << ADLAR);
+
+    ADCSRA = (ADCSRA & ~(0x07)) |
+             (Copy_u8Prescaler & 0x07);
+
+    ADCSRA |= (1 << ADEN);
+
+    return E_OK;
 }
-
 /*
- * Disables the ADC peripheral (powers it down / stops conversions).
+ * ADC_ReadChannel
+ * 1. Reject Channel > 7 or a NULL pointer.
+ * 2. Keep REFS bits, replace MUX4:0 with the channel.
+ * 3. Set ADSC. Poll ADIF (or ADSC) until the conversion ends.
+ * 4. Clear ADIF by writing 1 to it.
+ * 5. Read ADCL then ADCH. Combine: reading = ADCL | ((uint16)ADCH << 8).
  */
-STD_ReturnType ADC_DeInit(void)
+STD_ReturnType ADC_ReadChannel(uint8 Copy_u8Channel, uint16 *Copy_pu16Reading)
 {
-    CLR_BIT(ADC_ADCSRA_REG, ADC_ADEN_BIT);
+    if (Copy_u8Channel > ADC_CHANNEL_7 || Copy_pu16Reading == NULL)
+    {
+        return E_NOK;
+    }
+
+    ADMUX = (ADMUX & ~(0x1F)) | (Copy_u8Channel & 0x1F);
+    ADCSRA |= (1 << ADSC);
+
+    while (ADCSRA & (1 << ADSC))
+    {
+    }
+
+    ADCSRA |= (1 << ADIF);
+    *Copy_pu16Reading = ADCL;
+    *Copy_pu16Reading |= ((uint16)ADCH << 8);
 
     return E_OK;
 }
 
 /*
- * Selects the given channel and starts a single conversion (non-blocking).
+ * ADC_StartConversion
+ * 1. Select the channel as above.
+ * 2. Set ADSC and return. Used when the result will be read later or in an ISR.
  */
-STD_ReturnType ADC_StartConversion(uint8_h uint8Channel)
+STD_ReturnType ADC_StartConversion(uint8 Copy_u8Channel)
 {
-    STD_ReturnType local_Status = E_OK;
-
-    if (uint8Channel >= ADC_NUMBER_OF_CHANNELS)
+    if (Copy_u8Channel > ADC_CHANNEL_7)
     {
-        local_Status = E_NOK;
-    }
-    else
-    {
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX0_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX1_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX2_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX3_BIT);
-        CLR_BIT(ADC_ADMUX_REG, ADC_MUX4_BIT);
-        if (GET_BIT(uint8Channel, 0))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_MUX0_BIT);
-        }
-        if (GET_BIT(uint8Channel, 1))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_MUX1_BIT);
-        }
-        if (GET_BIT(uint8Channel, 2))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_MUX2_BIT);
-        }
-
-        SET_BIT(ADC_ADCSRA_REG, ADC_ADSC_BIT);
+        return E_NOK;
     }
 
-    return local_Status;
+    ADMUX = (ADMUX & ~(0x1F)) | (Copy_u8Channel & 0x1F);
+    ADCSRA |= (1 << ADSC);
+
+    return E_OK;
 }
 
 /*
- * Reports whether the ADC has finished the conversion that was last started.
+ * ADC_GetResult
+ * 1. If ADIF is 0, return E_NOK (still busy).
+ * 2. Clear ADIF, read ADCL then ADCH, store the 10-bit value.
  */
-uint8_h ADC_IsConversionComplete(void)
+STD_ReturnType ADC_GetResult(uint16 *Copy_pu16Reading)
 {
-    uint8_h uint8Status = ADC_CONVERSION_DONE;
-
-    if (GET_BIT(ADC_ADCSRA_REG, ADC_ADSC_BIT))
+    if (Copy_pu16Reading == NULL)
     {
-        uint8Status = ADC_CONVERSION_BUSY;
+        return E_NOK;
     }
 
-    return uint8Status;
+    if ((ADCSRA & (1 << ADIF)) == 0)
+    {
+        return E_NOK;
+    }
+
+    ADCSRA |= (1 << ADIF);
+    *Copy_pu16Reading = ADCL;
+    *Copy_pu16Reading |= ((uint16)ADCH << 8);
+
+    return E_OK;
 }
 
 /*
- * Reads the 10-bit result of the last completed conversion.
+ * ADC_SetInterrupt
+ * 1. Copy_u8State == 1 -> set ADIE.  == 0 -> clear ADIE.
+ * 2. The ISR vector is ADC_vect. Do not write the ISR in this file unless asked.
  */
-STD_ReturnType ADC_ReadResult(uint16_h *puint16Result)
-{
-    STD_ReturnType local_Status = E_OK;
-
-    if (puint16Result == NULL)
-    {
-        local_Status = E_NOK;
-    }
-    else
-    {
-        uint8_h uint8Low  = ADC_ADCL_REG;
-        uint8_h uint8High = ADC_ADCH_REG;
-
-        *puint16Result = (uint16_h)(((uint16_h)uint8High << 8) | uint8Low);
-    }
-
-    return local_Status;
-}
-
-/*
- * Blocking read: starts a conversion on the given channel, busy-waits until it
- * finishes, then returns the result.
- */
-STD_ReturnType ADC_ReadChannelBlocking(uint8_h uint8Channel, uint16_h *puint16Result)
-{
-    STD_ReturnType local_Status = ADC_StartConversion(uint8Channel);
-
-    if (local_Status == E_OK)
-    {
-        while (ADC_IsConversionComplete() == ADC_CONVERSION_BUSY)
-        {
-            /* wait */
-        }
-
-        local_Status = ADC_ReadResult(puint16Result);
-    }
-
-    return local_Status;
-}

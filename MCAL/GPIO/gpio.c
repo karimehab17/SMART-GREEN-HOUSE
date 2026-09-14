@@ -1,219 +1,302 @@
-#include "../../Service/STD_Types.h"
-#include "../../Service/Bit_Math.h"
-#include "gpio_registers.h"
-#include "gpio_interface.h"
+/*
+ * Author: Ahmed Ellamie
+ * Email:  ahmed.ellamiee@gmail.com
+ *
+ * STUDENT TASK — GPIO.c  (ATmega32)
+ * Implement every prototype from GPIO_interface.h. Return E_NOK on bad arguments.
+ */
 
-static volatile uint8_h *GPIO_DDRx[GPIO_NUMBER_OF_PORTS] = {&GPIO_DDRA, &GPIO_DDRB, &GPIO_DDRC, &GPIO_DDRD};
+#include "STD_TYPES.h"
+#include "GPIO_interface.h"
+#include "GPIO_private.h"
+#include "Math.h"
+#include <stddef.h>
 
 /*
- * Sets the direction of a specific GPIO pin on the requested port.
- * uint8Direction can be GPIO_INPUT or GPIO_OUTPUT.
+ * GPIO_SetPinDirection
+ * 1. Reject Port > GPIO_PORTD or Pin > GPIO_PIN7.
+ * 2. INPUT        : clear DDRx bit, clear PORTx bit (Hi-Z).
+ * 3. OUTPUT       : set DDRx bit.
+ * 4. INPUT_PULLUP : clear DDRx bit, set PORTx bit.
+ * 5. Switch on Copy_u8Port and touch only that port's DDR/PORT.
  */
-STD_ReturnType GPIO_SetPinDirection(uint8_h uint8Port, uint8_h uint8Pin, uint8_h uint8Direction)
+STD_ReturnType GPIO_SetPinDirection(uint8 Copy_u8Port, uint8 Copy_u8Pin, uint8 Copy_u8Direction)
 {
-    STD_ReturnType local_Status = E_OK;
-
-    if ((uint8Port >= GPIO_NUMBER_OF_PORTS) || (uint8Pin >= GPIO_NUMBER_OF_PINS))
+    if (Copy_u8Port > GPIO_PORTD || Copy_u8Pin > GPIO_PIN7)
     {
-        local_Status = E_NOK;
+        return E_NOK;
+    }
+    if (Copy_u8Direction == GPIO_INPUT)
+    {
+        // Clear DDRx bit, clear PORTx bit
+        switch (Copy_u8Port)
+        {
+        case GPIO_PORTA:
+            CLEAR_BIT(GPIO_DDRA_REG, Copy_u8Pin);
+            CLEAR_BIT(GPIO_PORTA_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTB:
+            CLEAR_BIT(GPIO_DDRB_REG, Copy_u8Pin);
+            CLEAR_BIT(GPIO_PORTB_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTC:
+            CLEAR_BIT(GPIO_DDRC_REG, Copy_u8Pin);
+            CLEAR_BIT(GPIO_PORTC_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTD:
+            CLEAR_BIT(GPIO_DDRD_REG, Copy_u8Pin);
+            CLEAR_BIT(GPIO_PORTD_REG, Copy_u8Pin);
+            break;
+        }
+    }
+    else if (Copy_u8Direction == GPIO_OUTPUT)
+    {
+        // Set DDRx bit
+        switch (Copy_u8Port)
+        {
+        case GPIO_PORTA:
+            SET_BIT(GPIO_DDRA_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTB:
+            SET_BIT(GPIO_DDRB_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTC:
+            SET_BIT(GPIO_DDRC_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTD:
+            SET_BIT(GPIO_DDRD_REG, Copy_u8Pin);
+            break;
+        }
+    }
+    else if (Copy_u8Direction == GPIO_INPUT_PULLUP)
+    {
+        // Clear DDRx bit, set PORTx bit
+        switch (Copy_u8Port)
+        {
+        case GPIO_PORTA:
+            CLEAR_BIT(GPIO_DDRA_REG, Copy_u8Pin);
+            SET_BIT(GPIO_PORTA_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTB:
+            CLEAR_BIT(GPIO_DDRB_REG, Copy_u8Pin);
+            SET_BIT(GPIO_PORTB_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTC:
+            CLEAR_BIT(GPIO_DDRC_REG, Copy_u8Pin);
+            SET_BIT(GPIO_PORTC_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTD:
+            CLEAR_BIT(GPIO_DDRD_REG, Copy_u8Pin);
+            SET_BIT(GPIO_PORTD_REG, Copy_u8Pin);
+            break;
+        }
     }
     else
     {
-        switch (uint8Direction)
+        return E_NOK;
+    }
+    return E_OK;
+}
+
+/*
+ * GPIO_SetPinValue
+ * 1. Validate port and pin.
+ * 2. GPIO_HIGH -> set PORTx bit.  GPIO_LOW -> clear PORTx bit.
+ */
+STD_ReturnType GPIO_SetPinValue(uint8 Copy_u8Port, uint8 Copy_u8Pin, uint8 Copy_u8Value)
+{
+    if (Copy_u8Port > GPIO_PORTD || Copy_u8Pin > GPIO_PIN7)
+    {
+        return E_NOK;
+    }
+    if (Copy_u8Value == GPIO_HIGH)
+    {
+        switch (Copy_u8Port)
         {
-            case GPIO_INPUT:
-                CLR_BIT(*GPIO_DDRx[uint8Port], uint8Pin);
-                break;
-            case GPIO_OUTPUT:
-                SET_BIT(*GPIO_DDRx[uint8Port], uint8Pin);
-                break;
-            default:
-                local_Status = E_NOK;
-                break;
+        case GPIO_PORTA:
+            SET_BIT(GPIO_PORTA_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTB:
+            SET_BIT(GPIO_PORTB_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTC:
+            SET_BIT(GPIO_PORTC_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTD:
+            SET_BIT(GPIO_PORTD_REG, Copy_u8Pin);
+            break;
         }
     }
-
-    return local_Status;
-}
-
-
-/*************************************************************************** */
-/*
- * Sets the direction for all pins of the requested GPIO port.
- * GPIO_INPUT configures the port as input, GPIO_OUTPUT configures it as output.
- */
-STD_ReturnType GPIO_SetPortDirection(uint8_h uint8Port, uint8_h uint8Direction){
-    STD_ReturnType local_Status = E_OK;
-
-    if ((uint8Port >= GPIO_NUMBER_OF_PORTS))
+    else if (Copy_u8Value == GPIO_LOW)
     {
-        local_Status = E_NOK;
-    }
-    else {
-        switch (uint8Direction)
+        switch (Copy_u8Port)
         {
-            case GPIO_INPUT:
-                *GPIO_DDRx[uint8Port] = 0x00; 
-                break;
-            case GPIO_OUTPUT:
-                *GPIO_DDRx[uint8Port] = 0xFF;
-                break;
-            default:
-                local_Status = E_NOK;
-                break;
+        case GPIO_PORTA:
+            CLEAR_BIT(GPIO_PORTA_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTB:
+            CLEAR_BIT(GPIO_PORTB_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTC:
+            CLEAR_BIT(GPIO_PORTC_REG, Copy_u8Pin);
+            break;
+        case GPIO_PORTD:
+            CLEAR_BIT(GPIO_PORTD_REG, Copy_u8Pin);
+            break;
         }
-    }
-    return local_Status;
-}
-
-/*************************************************************************************************************** */
-
-/*
- * Read the logic level of a specific GPIO pin and return it as GPIO_PINStatus.
- * Returns PIN_LOW when parameters are invalid or when the pin reads low.
- */
-GPIO_PINStatus GPIO_GetPinStatus(uint8_h uint8Port, uint8_h uint8Pin)
-{
-    if ((uint8Port >= GPIO_NUMBER_OF_PORTS) || (uint8Pin >= GPIO_NUMBER_OF_PINS))
-    {
-        return PIN_LOW;
-    }
-
-    volatile uint8_h *pinReg = NULL;
-    switch (uint8Port)
-    {
-        case GPIO_PORTA: pinReg = &GPIO_PINA; break;
-        case GPIO_PORTB: pinReg = &GPIO_PINB; break;
-        case GPIO_PORTC: pinReg = &GPIO_PINC; break;
-        case GPIO_PORTD: pinReg = &GPIO_PIND; break;
-        default: return PIN_LOW;
-    }
-
-    return (GET_BIT(*pinReg, uint8Pin) ? PIN_HIGH : PIN_LOW);
-}
-
-/*
- * Read and return the input register value for the requested GPIO port.
- * Returns 0 when the port index is invalid.
- */
-GPIO_PortStatus GPIO_GetPortStatus(uint8_h uint8Port)
-{
-    if (uint8Port >= GPIO_NUMBER_OF_PORTS)
-    {
-        return (GPIO_PortStatus)0;
-    }
-
-    switch (uint8Port)
-    {
-        case GPIO_PORTA: return (GPIO_PortStatus)GPIO_PINA;
-        case GPIO_PORTB: return (GPIO_PortStatus)GPIO_PINB;
-        case GPIO_PORTC: return (GPIO_PortStatus)GPIO_PINC;
-        case GPIO_PORTD: return (GPIO_PortStatus)GPIO_PIND;
-        default: return (GPIO_PortStatus)0;
-    }
-}
-
-/*
- * Toggles the output state of a specific GPIO pin on the requested port.
- */
-STD_ReturnType GPIO_PinToggle(uint8_h uint8Port, uint8_h uint8Pin)
-{
-    STD_ReturnType local_Status = E_OK;
-
-    if ((uint8Port >= GPIO_NUMBER_OF_PORTS) || (uint8Pin >= GPIO_NUMBER_OF_PINS))
-    {
-        local_Status = E_NOK;
     }
     else
     {
-        volatile uint8_h *portReg = NULL;
-        switch (uint8Port)
-        {
-            case GPIO_PORTA: portReg = &GPIO_PORTA_REG; break;
-            case GPIO_PORTB: portReg = &GPIO_PORTB_REG; break;
-            case GPIO_PORTC: portReg = &GPIO_PORTC_REG; break;
-            case GPIO_PORTD: portReg = &GPIO_PORTD_REG; break;
-            default: local_Status = E_NOK; break;
-        }
-
-        if (local_Status == E_OK)
-        {
-            TOG_BIT(*portReg, uint8Pin);
-        }
+        return E_NOK;
     }
-
-    return local_Status;
+    return E_OK;
 }
 
 /*
- * Sets the output value for a specific GPIO pin on the requested port.
- * uint8Value of 0 clears the pin; any other value sets the pin.
+ * GPIO_GetPinValue
+ * 1. Validate port, pin, and that Copy_pu8Value is not NULL.
+ * 2. Read PINx bit into *Copy_pu8Value as GPIO_HIGH or GPIO_LOW.
  */
-STD_ReturnType GPIO_SetPinValue(uint8_h uint8Port, uint8_h uint8Pin, uint8_h uint8Value)
+STD_ReturnType GPIO_GetPinValue(uint8 Copy_u8Port, uint8 Copy_u8Pin,
+                                uint8 *Copy_pu8Value)
 {
-    STD_ReturnType local_Status = E_OK;
+    if (Copy_u8Port > GPIO_PORTD || Copy_u8Pin > GPIO_PIN7 || Copy_pu8Value == NULL)
+        return E_NOK;
 
-    if ((uint8Port >= GPIO_NUMBER_OF_PORTS) || (uint8Pin >= GPIO_NUMBER_OF_PINS))
+    switch (Copy_u8Port)
     {
-        local_Status = E_NOK;
+    case GPIO_PORTA:
+        *Copy_pu8Value = GET_BIT(GPIO_PINA_REG, Copy_u8Pin);
+        break;
+    case GPIO_PORTB:
+        *Copy_pu8Value = GET_BIT(GPIO_PINB_REG, Copy_u8Pin);
+        break;
+    case GPIO_PORTC:
+        *Copy_pu8Value = GET_BIT(GPIO_PINC_REG, Copy_u8Pin);
+        break;
+    case GPIO_PORTD:
+        *Copy_pu8Value = GET_BIT(GPIO_PIND_REG, Copy_u8Pin);
+        break;
+    default:
+        return E_NOK;
     }
-    else
-    {
-        volatile uint8_h *portReg = NULL;
-        switch (uint8Port)
-        {
-            case GPIO_PORTA: portReg = &GPIO_PORTA_REG; break;
-            case GPIO_PORTB: portReg = &GPIO_PORTB_REG; break;
-            case GPIO_PORTC: portReg = &GPIO_PORTC_REG; break;
-            case GPIO_PORTD: portReg = &GPIO_PORTD_REG; break;
-            default: local_Status = E_NOK; break;
-        }
-
-        if (local_Status == E_OK)
-        {
-            if (uint8Value == 0)
-            {
-                CLR_BIT(*portReg, uint8Pin);
-            }
-            else
-            {
-                SET_BIT(*portReg, uint8Pin);
-            }
-        }
-    }
-
-    return local_Status;
+    return E_OK;
 }
 
 /*
- * Writes an 8-bit value to the entire output register of the requested GPIO port.
+ * GPIO_TogglePinValue
+ * 1. Validate port and pin.
+ * 2. Flip the matching PORTx bit (PORTx ^= mask).
  */
-STD_ReturnType GPIO_SetPortValue(uint8_h uint8Port, uint8_h uint8Value)
+
+STD_ReturnType GPIO_TogglePinValue(uint8 Copy_u8Port, uint8 Copy_u8Pin)
 {
-    STD_ReturnType local_Status = E_OK;
-
-    if (uint8Port >= GPIO_NUMBER_OF_PORTS)
+    if (Copy_u8Port > GPIO_PORTD || Copy_u8Pin > GPIO_PIN7)
+        return E_NOK;
+    switch (Copy_u8Port)
     {
-        local_Status = E_NOK;
+    case GPIO_PORTA:
+        TOGGLE_BIT(GPIO_PORTA_REG, Copy_u8Pin);
+        break;
+    case GPIO_PORTB:
+        TOGGLE_BIT(GPIO_PORTB_REG, Copy_u8Pin);
+        break;
+    case GPIO_PORTC:
+        TOGGLE_BIT(GPIO_PORTC_REG, Copy_u8Pin);
+        break;
+    case GPIO_PORTD:
+        TOGGLE_BIT(GPIO_PORTD_REG, Copy_u8Pin);
+        break;
+    default:
+        return E_NOK;
     }
-    else
-    {
-        volatile uint8_h *portReg = NULL;
-        switch (uint8Port)
-        {
-            case GPIO_PORTA: portReg = &GPIO_PORTA_REG; break;
-            case GPIO_PORTB: portReg = &GPIO_PORTB_REG; break;
-            case GPIO_PORTC: portReg = &GPIO_PORTC_REG; break;
-            case GPIO_PORTD: portReg = &GPIO_PORTD_REG; break;
-            default: local_Status = E_NOK; break;
-        }
-
-        if (local_Status == E_OK)
-        {
-            *portReg = (uint8_h)uint8Value;
-        }
-    }
-
-    return local_Status;
+    return E_OK;
 }
-/*************************************************************************************************************** */
+
+/*
+ * GPIO_SetPortDirection
+ * 1. Validate port. Direction is GPIO_INPUT or GPIO_OUTPUT.
+ * 2. Write 0x00 or 0xFF to that port's DDRx.
+ */
+STD_ReturnType GPIO_SetPortDirection(uint8 Copy_u8Port, uint8 Copy_u8Direction)
+{
+    if (Copy_u8Port > GPIO_PORTD)
+        return E_NOK;
+
+    switch (Copy_u8Port)
+    {
+    case GPIO_PORTA:
+        GPIO_DDRA_REG = Copy_u8Direction;
+        break;
+    case GPIO_PORTB:
+        GPIO_DDRB_REG = Copy_u8Direction;
+        break;
+    case GPIO_PORTC:
+        GPIO_DDRC_REG = Copy_u8Direction;
+        break;
+    case GPIO_PORTD:
+        GPIO_DDRD_REG = Copy_u8Direction;
+        break;
+    default:
+        return E_NOK;
+    }
+    return E_OK;
+}
+
+/*
+ * GPIO_SetPortValue
+ * 1. Validate port.
+ * 2. Write Copy_u8Value to PORTx.
+ */
+STD_ReturnType GPIO_SetPortValue(uint8 Copy_u8Port, uint8 Copy_u8Value)
+{
+    if (Copy_u8Port > GPIO_PORTD)
+        return E_NOK;
+    switch (Copy_u8Port)
+    {
+    case GPIO_PORTA:
+        GPIO_PORTA_REG = Copy_u8Value;
+        break;
+    case GPIO_PORTB:
+        GPIO_PORTB_REG = Copy_u8Value;
+        break;
+    case GPIO_PORTC:
+         GPIO_PORTC_REG = Copy_u8Value;
+        break;
+    case GPIO_PORTD:
+         GPIO_PORTD_REG = Copy_u8Value;
+        break;
+    default:
+        return E_NOK;
+    }
+    return E_OK;
+}
+
+/*
+ * GPIO_GetPortValue
+ * 1. Validate port and that Copy_pu8Value is not NULL.
+ * 2. Read PINx into *Copy_pu8Value.
+ */
+STD_ReturnType GPIO_GetPortValue(uint8 Copy_u8Port, uint8 *Copy_pu8Value)
+{
+    if (Copy_u8Port > GPIO_PORTD || Copy_pu8Value == NULL)
+        return E_NOK;
+    switch (Copy_u8Port)
+    {
+    case GPIO_PORTA:
+        *Copy_pu8Value = GPIO_PINA_REG;
+        break;
+    case GPIO_PORTB:
+        *Copy_pu8Value = GPIO_PINB_REG;
+        break;
+    case GPIO_PORTC:
+        *Copy_pu8Value = GPIO_PINC_REG;
+        break;
+    case GPIO_PORTD:
+        *Copy_pu8Value = GPIO_PIND_REG;
+        break;
+    default:
+        return E_NOK;
+    }
+    return E_OK;
+}

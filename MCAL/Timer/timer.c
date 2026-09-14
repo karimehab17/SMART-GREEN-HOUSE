@@ -1,447 +1,309 @@
-#include "../../Service/STD_Types.h"
-#include "../../Service/Bit_Math.h"
-#include "timer_registers.h"
-#include "timer_interface.h"
+#include <avr/io.h>
 
-/* ================================================================================
- *  TIMER DRIVER - IMPLEMENTATION (ATmega32)
- * ============================================================================== */
-
-/* ISR Vector definitions for ATmega32 standard GCC Compiler (AVR-Libc) */
-volatile uint16_h g_timerTick = 0;
-void __vector_4(void)  __attribute__((signal)); /* TIMER2 COMP (Compare Match) */
-void __vector_5(void)  __attribute__((signal)); /* TIMER2 OVF  (Overflow)      */
-void __vector_7(void)  __attribute__((signal)); /* TIMER1 COMPA(Compare A)      */
-void __vector_9(void)  __attribute__((signal)); /* TIMER1 OVF  (Overflow)      */
-void __vector_10(void) __attribute__((signal)); /* TIMER0 COMP (Compare Match) */
-void __vector_11(void) __attribute__((signal)); /* TIMER0 OVF  (Overflow)      */
+#include "STD_TYPES.h"
+#include "TIMER_interface.h"
+#include "TIMER_private.h"
 
 /*
- * Callback storage: one slot per channel per interrupt source.
- * [channel][TIMER_INT_OVERFLOW] = overflow callback,
- * [channel][TIMER_INT_COMPARE_MATCH] = compare-match callback.
+ * Fallback timer mode definitions for projects where the generated
+ * interface header does not provide them yet.
  */
-static Timer_CallBackType Timer_CallBacks[TIMER_CHANNEL_MAX][2] = { { NULL, NULL },
-                                                                    { NULL, NULL },
-                                                                    { NULL, NULL } };
+#ifndef TIMER0_NORMAL
+#define TIMER0_NORMAL 0u
+#define TIMER0_PHASE_CORRECT 1u
+#define TIMER0_CTC 2u
+#define TIMER0_FAST_PWM 3u
+#endif
 
+#ifndef TIMER0_OC_DISCONNECT
+#define TIMER0_OC_DISCONNECT 0u
+#define TIMER0_OC_TOGGLE 1u
+#define TIMER0_OC_NON_INVERT 2u
+#define TIMER0_OC_INVERT 3u
+#endif
 
-/* Set the waveform-generation-mode bits for the selected channel. */
-static void Timer_SetMode(Timer_ChannelType channel, Timer_ModeType mode)
+#ifndef TIMER1_NORMAL
+#define TIMER1_NORMAL 0u
+#define TIMER1_CTC_OCR1A 4u
+#define TIMER1_FAST_PWM_8BIT 5u
+#define TIMER1_FAST_PWM_ICR1 14u
+#endif
+
+#ifndef TIMER_EXT_RISING
+#define TIMER_EXT_RISING 7u
+#endif
+
+/* =========================================================
+ *                         TIMER0
+ * ========================================================= */
+
+/*
+ * TIMER0_Init
+ * 1. Reject an unknown mode.
+ * 2. NORMAL          : WGM01=0 WGM00=0
+ *    PHASE_CORRECT   : WGM01=0 WGM00=1
+ *    CTC             : WGM01=1 WGM00=0
+ *    FAST_PWM        : WGM01=1 WGM00=1
+ * 3. Do not change CS02:0 here — TIMER0_Start owns the clock.
+ */
+STD_ReturnType TIMER0_Init(uint8 Copy_u8Mode)
 {
-    switch (channel)
-    {
-        case TIMER_CHANNEL_0:
-            /* WGM00 = bit6, WGM01 = bit3. */
-            switch (mode)
-            {
-                case TIMER_MODE_NORMAL:
-                    CLR_BIT(TIMER_TCCR0_REG, TIMER_WGM00_BIT);
-                    CLR_BIT(TIMER_TCCR0_REG, TIMER_WGM01_BIT);
-                    break;
-                case TIMER_MODE_CTC:
-                    CLR_BIT(TIMER_TCCR0_REG, TIMER_WGM00_BIT);
-                    SET_BIT(TIMER_TCCR0_REG, TIMER_WGM01_BIT);
-                    break;
-                case TIMER_MODE_FAST_PWM:
-                    SET_BIT(TIMER_TCCR0_REG, TIMER_WGM00_BIT);
-                    SET_BIT(TIMER_TCCR0_REG, TIMER_WGM01_BIT);
-                    break;
-                case TIMER_MODE_PHASE_PWM:
-                default:
-                    SET_BIT(TIMER_TCCR0_REG, TIMER_WGM00_BIT);
-                    CLR_BIT(TIMER_TCCR0_REG, TIMER_WGM01_BIT);
-                    break;
-            }
-            break;
-
-        case TIMER_CHANNEL_2:
-            /* WGM20 = bit6, WGM21 = bit3. */
-            switch (mode)
-            {
-                case TIMER_MODE_NORMAL:
-                    CLR_BIT(TIMER_TCCR2_REG, TIMER_WGM20_BIT);
-                    CLR_BIT(TIMER_TCCR2_REG, TIMER_WGM21_BIT);
-                    break;
-                case TIMER_MODE_CTC:
-                    CLR_BIT(TIMER_TCCR2_REG, TIMER_WGM20_BIT);
-                    SET_BIT(TIMER_TCCR2_REG, TIMER_WGM21_BIT);
-                    break;
-                case TIMER_MODE_FAST_PWM:
-                    SET_BIT(TIMER_TCCR2_REG, TIMER_WGM20_BIT);
-                    SET_BIT(TIMER_TCCR2_REG, TIMER_WGM21_BIT);
-                    break;
-                case TIMER_MODE_PHASE_PWM:
-                default:
-                    SET_BIT(TIMER_TCCR2_REG, TIMER_WGM20_BIT);
-                    CLR_BIT(TIMER_TCCR2_REG, TIMER_WGM21_BIT);
-                    break;
-            }
-            break;
-
-        case TIMER_CHANNEL_1:
-        default:
-            /* Timer1 16-bit: WGM11:10 in TCCR1A, WGM13:12 in TCCR1B. */
-            CLR_BIT(TIMER_TCCR1A_REG, TIMER_WGM10_BIT);
-            CLR_BIT(TIMER_TCCR1A_REG, TIMER_WGM11_BIT);
-            CLR_BIT(TIMER_TCCR1B_REG, TIMER_WGM12_BIT);
-            CLR_BIT(TIMER_TCCR1B_REG, TIMER_WGM13_BIT);
-            switch (mode)
-            {
-                case TIMER_MODE_NORMAL:
-                    /* Mode 0: 0000 */
-                    break;
-                case TIMER_MODE_CTC:
-                    /* Mode 4: CTC, TOP = OCR1A -> WGM12 = 1 */
-                    SET_BIT(TIMER_TCCR1B_REG, TIMER_WGM12_BIT);
-                    break;
-                case TIMER_MODE_FAST_PWM:
-                    /* Mode 5: Fast PWM 8-bit -> WGM12 = 1, WGM10 = 1 */
-                    SET_BIT(TIMER_TCCR1A_REG, TIMER_WGM10_BIT);
-                    SET_BIT(TIMER_TCCR1B_REG, TIMER_WGM12_BIT);
-                    break;
-                case TIMER_MODE_PHASE_PWM:
-                default:
-                    /* Mode 1: Phase-correct PWM 8-bit -> WGM10 = 1 */
-                    SET_BIT(TIMER_TCCR1A_REG, TIMER_WGM10_BIT);
-                    break;
-            }
-            break;
-    }
-}
-
-
-STD_ReturnType Timer_Init(const Timer_ConfigType *addConfig)
-{
-    if ((addConfig == NULL) || (addConfig->channel >= TIMER_CHANNEL_MAX))
+    if (Copy_u8Mode > TIMER0_FAST_PWM)
     {
         return E_NOK;
     }
 
-    Timer_SetMode(addConfig->channel, addConfig->mode);
+    /* Clear WGM01:WGM00 */
+    TIMER0_REG_TCCR0 &= ~((1u << WGM01) | (1u << WGM00));
 
-    switch (addConfig->channel)
+    switch (Copy_u8Mode)
     {
-        case TIMER_CHANNEL_0:
-            TIMER_TCNT0_REG = (u8)addConfig->initialValue;
-            TIMER_OCR0_REG  = (u8)addConfig->compareValue;
-            break;
-        case TIMER_CHANNEL_1:
-            TIMER_TCNT1_REG = addConfig->initialValue;
-            TIMER_OCR1A_REG = addConfig->compareValue;
-            break;
-        case TIMER_CHANNEL_2:
-            TIMER_TCNT2_REG = (u8)addConfig->initialValue;
-            TIMER_OCR2_REG  = (u8)addConfig->compareValue;
-            break;
-        default:
-            return E_NOK;
-    }
+    case TIMER0_NORMAL:
+        /* WGM01=0, WGM00=0 */
+        break;
 
-    /* Connect the clock (or stay paused if TIMER_CLOCK_STOPPED). */
-    return Timer_Start(addConfig->channel, addConfig->prescaler);
-}
+    case TIMER0_PHASE_CORRECT:
+        /* WGM01=0, WGM00=1 */
+        TIMER0_REG_TCCR0 |= (1u << WGM00);
+        break;
 
+    case TIMER0_CTC:
+        /* WGM01=1, WGM00=0 */
+        TIMER0_REG_TCCR0 |= (1u << WGM01);
+        break;
 
-STD_ReturnType Timer_DeInit(Timer_ChannelType channel)
-{
-    if (channel >= TIMER_CHANNEL_MAX)
-    {
+    case TIMER0_FAST_PWM:
+        /* WGM01=1, WGM00=1 */
+        TIMER0_REG_TCCR0 |= (1u << WGM01) |
+                            (1u << WGM00);
+        break;
+
+    default:
         return E_NOK;
-    }
-
-    (void)Timer_DisableInterrupt(channel, TIMER_INT_OVERFLOW);
-    (void)Timer_DisableInterrupt(channel, TIMER_INT_COMPARE_MATCH);
-
-    switch (channel)
-    {
-        case TIMER_CHANNEL_0:
-            TIMER_TCCR0_REG = 0U;
-            TIMER_TCNT0_REG = 0U;
-            break;
-        case TIMER_CHANNEL_1:
-            TIMER_TCCR1A_REG = 0U;
-            TIMER_TCCR1B_REG = 0U;
-            TIMER_TCNT1_REG  = 0U;
-            break;
-        case TIMER_CHANNEL_2:
-            TIMER_TCCR2_REG = 0U;
-            TIMER_TCNT2_REG = 0U;
-            break;
-        default:
-            return E_NOK;
-    }
-
-    Timer_CallBacks[channel][TIMER_INT_OVERFLOW]      = NULL;
-    Timer_CallBacks[channel][TIMER_INT_COMPARE_MATCH] = NULL;
-
-    return E_OK;
-}
-
-
-STD_ReturnType Timer_Start(Timer_ChannelType channel, Timer_PrescalerType prescaler)
-{
-    if (channel >= TIMER_CHANNEL_MAX)
-    {
-        return E_NOK;
-    }
-
-    switch (channel)
-    {
-        case TIMER_CHANNEL_0:
-            TIMER_TCCR0_REG &= ~((1U << TIMER_CS02_BIT) | (1U << TIMER_CS01_BIT) |
-                                 (1U << TIMER_CS00_BIT));
-            TIMER_TCCR0_REG |= ((uint8_h)prescaler & 0x07U);
-            break;
-        case TIMER_CHANNEL_1:
-            TIMER_TCCR1B_REG &= ~((1U << TIMER_CS12_BIT) | (1U << TIMER_CS11_BIT) |
-                                  (1U << TIMER_CS10_BIT));
-            TIMER_TCCR1B_REG |= ((uint8_h)prescaler & 0x07U);
-            break;
-        case TIMER_CHANNEL_2:
-            TIMER_TCCR2_REG &= ~((1U << TIMER_CS22_BIT) | (1U << TIMER_CS21_BIT) |
-                                 (1U << TIMER_CS20_BIT));
-            TIMER_TCCR2_REG |= ((uint8_h)prescaler & 0x07U);
-            break;
-        default:
-            return E_NOK;
     }
 
     return E_OK;
 }
 
-
-STD_ReturnType Timer_Stop(Timer_ChannelType channel)
+/*
+ * TIMER0_Start
+ * 1. Write CS02:0 from Copy_u8Prescaler.
+ * 2. Leave WGM and COM bits as they are.
+ */
+STD_ReturnType TIMER0_Start(uint8 Copy_u8Prescaler)
 {
-    if (channel >= TIMER_CHANNEL_MAX)
+    if (Copy_u8Prescaler > TIMER_EXT_RISING)
     {
         return E_NOK;
     }
 
-    switch (channel)
+    /* Clear CS02:CS00 */
+    TIMER0_REG_TCCR0 &= ~((1u << CS02) |
+                          (1u << CS01) |
+                          (1u << CS00));
+
+    /* Set new clock source */
+    TIMER0_REG_TCCR0 |= Copy_u8Prescaler;
+
+    return E_OK;
+}
+
+/*
+ * TIMER0_Stop
+ * 1. Clear CS02:0 only. TCNT0 is unchanged.
+ */
+STD_ReturnType TIMER0_Stop(void)
+{
+    TIMER0_REG_TCCR0 &= ~((1u << CS02) |
+                          (1u << CS01) |
+                          (1u << CS00));
+
+    return E_OK;
+}
+
+/*
+ * TIMER0_SetCompareValue
+ * 1. Write Copy_u8Value to OCR0.
+ */
+STD_ReturnType TIMER0_SetCompareValue(uint8 Copy_u8Value)
+{
+    TIMER0_REG_OCR0 = Copy_u8Value;
+
+    return E_OK;
+}
+
+/*
+ * TIMER0_SetCompareOutput
+ * 1. Write COM01:0.
+ */
+STD_ReturnType TIMER0_SetCompareOutput(uint8 Copy_u8ComMode)
+{
+    if (Copy_u8ComMode > TIMER0_OC_INVERT)
     {
-        case TIMER_CHANNEL_0:
-            TIMER_TCCR0_REG &= ~((1U << TIMER_CS02_BIT) | (1U << TIMER_CS01_BIT) |
-                                 (1U << TIMER_CS00_BIT));
-            break;
-        case TIMER_CHANNEL_1:
-            TIMER_TCCR1B_REG &= ~((1U << TIMER_CS12_BIT) | (1U << TIMER_CS11_BIT) |
-                                  (1U << TIMER_CS10_BIT));
-            break;
-        case TIMER_CHANNEL_2:
-            TIMER_TCCR2_REG &= ~((1U << TIMER_CS22_BIT) | (1U << TIMER_CS21_BIT) |
-                                 (1U << TIMER_CS20_BIT));
-            break;
-        default:
-            return E_NOK;
+        return E_NOK;
+    }
+
+    /* Clear COM01:COM00 */
+    TIMER0_REG_TCCR0 &= ~((1u << COM01) |
+                          (1u << COM00));
+
+    /* COM00 is bit 4, so mode 0..3 maps directly to bits 4..5 */
+    TIMER0_REG_TCCR0 |= (Copy_u8ComMode << COM00);
+
+    return E_OK;
+}
+
+/*
+ * TIMER0_SetOverflowInterrupt / TIMER0_SetCompareInterrupt
+ * 1. Set or clear TOIE0 / OCIE0 in TIMSK.
+ * 2. Vectors: TIMER0_OVF_vect , TIMER0_COMP_vect.
+ *    Global I-bit is INTERRUPT's job.
+ */
+STD_ReturnType TIMER0_SetOverflowInterrupt(uint8 Copy_u8State)
+{
+    if (Copy_u8State > 1u)
+    {
+        return E_NOK;
+    }
+
+    if (Copy_u8State == 1u)
+    {
+        TIMSK_REG |= (1u << TOIE0);
+    }
+    else
+    {
+        TIMSK_REG &= ~(1u << TOIE0);
     }
 
     return E_OK;
 }
 
-
-STD_ReturnType Timer_SetCounterValue(Timer_ChannelType channel, uint16_h value)
+STD_ReturnType TIMER0_SetCompareInterrupt(uint8 Copy_u8State)
 {
-    if (channel >= TIMER_CHANNEL_MAX)
+    if (Copy_u8State > 1u)
     {
         return E_NOK;
     }
 
-    switch (channel)
+    if (Copy_u8State == 1u)
     {
-        case TIMER_CHANNEL_0: TIMER_TCNT0_REG = (u8)value; break;
-        case TIMER_CHANNEL_1: TIMER_TCNT1_REG = value;     break;
-        case TIMER_CHANNEL_2: TIMER_TCNT2_REG = (u8)value; break;
-        default: return E_NOK;
+        TIMSK_REG |= (1u << OCIE0);
+    }
+    else
+    {
+        TIMSK_REG &= ~(1u << OCIE0);
     }
 
     return E_OK;
 }
 
+/* =========================================================
+ *                         TIMER1
+ * ========================================================= */
 
-STD_ReturnType Timer_GetCounterValue(Timer_ChannelType channel, uint16_h *puint16Val)
+/*
+ * TIMER1_Init / TIMER1_Start / TIMER1_Stop
+ * 1. WGM13:0 live in TCCR1A (WGM11:10) and TCCR1B (WGM13:12).
+ * 2. CTC on OCR1A is mode 4: WGM13:0 = 0100.
+ * 3. CS12:0 are in TCCR1B.
+ */
+STD_ReturnType TIMER1_Init(uint8 Copy_u8Mode)
 {
-    if ((channel >= TIMER_CHANNEL_MAX) || (puint16Val == NULL))
+    if (Copy_u8Mode != TIMER1_NORMAL &&
+        Copy_u8Mode != TIMER1_CTC_OCR1A &&
+        Copy_u8Mode != TIMER1_FAST_PWM_8BIT &&
+        Copy_u8Mode != TIMER1_FAST_PWM_ICR1)
     {
         return E_NOK;
     }
 
-    switch (channel)
+    /* Clear WGM11:WGM10 */
+    TIMER1_REG_TCCR1A &= ~((1u << WGM11) |
+                           (1u << WGM10));
+
+    /* Clear WGM13:WGM12 */
+    TIMER1_REG_TCCR1B &= ~((1u << WGM13) |
+                           (1u << WGM12));
+
+    switch (Copy_u8Mode)
     {
-        case TIMER_CHANNEL_0: *puint16Val = TIMER_TCNT0_REG; break;
-        case TIMER_CHANNEL_1: *puint16Val = TIMER_TCNT1_REG; break;
-        case TIMER_CHANNEL_2: *puint16Val = TIMER_TCNT2_REG; break;
-        default: return E_NOK;
+    case TIMER1_NORMAL:
+        /* WGM13:0 = 0000 */
+        break;
+
+    case TIMER1_CTC_OCR1A:
+        /* WGM13:0 = 0100 */
+        TIMER1_REG_TCCR1B |= (1u << WGM12);
+        break;
+
+    case TIMER1_FAST_PWM_8BIT:
+        /* WGM13:0 = 0101 */
+        TIMER1_REG_TCCR1A |= (1u << WGM10);
+        TIMER1_REG_TCCR1B |= (1u << WGM12);
+        break;
+
+    case TIMER1_FAST_PWM_ICR1:
+        /* WGM13:0 = 1110 */
+        TIMER1_REG_TCCR1A |= (1u << WGM11);
+        TIMER1_REG_TCCR1B |= (1u << WGM13) |
+                             (1u << WGM12);
+        break;
+
+    default:
+        return E_NOK;
     }
 
     return E_OK;
 }
 
-
-STD_ReturnType Timer_SetCompareValue(Timer_ChannelType channel, uint16_h value)
+/*
+ * TIMER1_Start
+ */
+STD_ReturnType TIMER1_Start(uint8 Copy_u8Prescaler)
 {
-    if (channel >= TIMER_CHANNEL_MAX)
+    if (Copy_u8Prescaler > TIMER_EXT_RISING)
     {
         return E_NOK;
     }
 
-    switch (channel)
-    {
-        case TIMER_CHANNEL_0: TIMER_OCR0_REG  = (u8)value; break;
-        case TIMER_CHANNEL_1: TIMER_OCR1A_REG = value;     break;
-        case TIMER_CHANNEL_2: TIMER_OCR2_REG  = (u8)value; break;
-        default: return E_NOK;
-    }
+    /* Clear CS12:CS10 */
+    TIMER1_REG_TCCR1B &= ~((1u << CS12) |
+                           (1u << CS11) |
+                           (1u << CS10));
+
+    /* Set new clock source */
+    TIMER1_REG_TCCR1B |= Copy_u8Prescaler;
 
     return E_OK;
 }
 
-
-STD_ReturnType Timer_EnableInterrupt(Timer_ChannelType channel, Timer_InterruptType intType)
+/*
+ * TIMER1_Stop
+ */
+STD_ReturnType TIMER1_Stop(void)
 {
-    if (channel >= TIMER_CHANNEL_MAX)
-    {
-        return E_NOK;
-    }
-
-    switch (channel)
-    {
-        case TIMER_CHANNEL_0:
-            SET_BIT(TIMER_TIMSK_REG,
-                    (intType == TIMER_INT_OVERFLOW) ? TIMER_TOIE0_BIT : TIMER_OCIE0_BIT);
-            break;
-        case TIMER_CHANNEL_1:
-            SET_BIT(TIMER_TIMSK_REG,
-                    (intType == TIMER_INT_OVERFLOW) ? TIMER_TOIE1_BIT : TIMER_OCIE1A_BIT);
-            break;
-        case TIMER_CHANNEL_2:
-            SET_BIT(TIMER_TIMSK_REG,
-                    (intType == TIMER_INT_OVERFLOW) ? TIMER_TOIE2_BIT : TIMER_OCIE2_BIT);
-            break;
-        default:
-            return E_NOK;
-    }
+    TIMER1_REG_TCCR1B &= ~((1u << CS12) |
+                           (1u << CS11) |
+                           (1u << CS10));
 
     return E_OK;
 }
 
-
-STD_ReturnType Timer_DisableInterrupt(Timer_ChannelType channel, Timer_InterruptType intType)
+/*
+ * TIMER1_SetCompareA / TIMER1_SetICR1
+ * 1. 16-bit write: high byte first, then low byte
+ *    (or assign the 16-bit register).
+ */
+STD_ReturnType TIMER1_SetCompareA(uint16 Copy_u16Value)
 {
-    if (channel >= TIMER_CHANNEL_MAX)
-    {
-        return E_NOK;
-    }
-
-    switch (channel)
-    {
-        case TIMER_CHANNEL_0:
-            CLR_BIT(TIMER_TIMSK_REG,
-                    (intType == TIMER_INT_OVERFLOW) ? TIMER_TOIE0_BIT : TIMER_OCIE0_BIT);
-            break;
-        case TIMER_CHANNEL_1:
-            CLR_BIT(TIMER_TIMSK_REG,
-                    (intType == TIMER_INT_OVERFLOW) ? TIMER_TOIE1_BIT : TIMER_OCIE1A_BIT);
-            break;
-        case TIMER_CHANNEL_2:
-            CLR_BIT(TIMER_TIMSK_REG,
-                    (intType == TIMER_INT_OVERFLOW) ? TIMER_TOIE2_BIT : TIMER_OCIE2_BIT);
-            break;
-        default:
-            return E_NOK;
-    }
+    TIMER1_REG_OCR1A = Copy_u16Value;
 
     return E_OK;
 }
 
-
-STD_ReturnType Timer_SetCallBack(Timer_ChannelType channel,
-                               Timer_InterruptType intType,
-                               Timer_CallBackType callBack)
+STD_ReturnType TIMER1_SetICR1(uint16 Copy_u16Value)
 {
-    if ((channel >= TIMER_CHANNEL_MAX) || (callBack == NULL))
-    {
-        return E_NOK;
-    }
+    TIMER1_REG_ICR1 = Copy_u16Value;
 
-    Timer_CallBacks[channel][intType] = callBack;
     return E_OK;
-}
-
-
-void Timer_EnableGlobalInterrupt(void)
-{
-    SET_BIT(TIMER_SREG_REG, TIMER_GLOBAL_INT_BIT);   /* Enable global interrupts */
-}
-
-
-void Timer_DisableGlobalInterrupt(void)
-{
-    CLR_BIT(TIMER_SREG_REG, TIMER_GLOBAL_INT_BIT);   /* Disable global interrupts */
-}
-
-
-/* ================================================================================
- *  INTERRUPT SERVICE ROUTINES (Mapped to ATmega32 Standard Vector Table)
- * ============================================================================== */
-
-/* Timer2 Compare Match ISR (__vector_4) */
-void __vector_4(void)
-{
-    if (Timer_CallBacks[TIMER_CHANNEL_2][TIMER_INT_COMPARE_MATCH] != NULL)
-    {
-        Timer_CallBacks[TIMER_CHANNEL_2][TIMER_INT_COMPARE_MATCH]();
-    }
-}
-
-/* Timer2 Overflow ISR (__vector_5) */
-void __vector_5(void)
-{
-    if (Timer_CallBacks[TIMER_CHANNEL_2][TIMER_INT_OVERFLOW] != NULL)
-    {
-        Timer_CallBacks[TIMER_CHANNEL_2][TIMER_INT_OVERFLOW]();
-    }
-}
-
-/* Timer1 Compare Match A ISR (__vector_7) */
-void __vector_7(void)
-{
-    if (Timer_CallBacks[TIMER_CHANNEL_1][TIMER_INT_COMPARE_MATCH] != NULL)
-    {
-        Timer_CallBacks[TIMER_CHANNEL_1][TIMER_INT_COMPARE_MATCH]();
-    }
-}
-
-/* Timer1 Overflow ISR (__vector_9) */
-void __vector_9(void)
-{
-    if (Timer_CallBacks[TIMER_CHANNEL_1][TIMER_INT_OVERFLOW] != NULL)
-    {
-        Timer_CallBacks[TIMER_CHANNEL_1][TIMER_INT_OVERFLOW]();
-    }
-}
-
-/* Timer0 Compare Match ISR (__vector_10) */
-
-void __vector_10(void)
-{
-    g_timerTick++;
-
-    if (Timer_CallBacks[TIMER_CHANNEL_0][TIMER_INT_COMPARE_MATCH] != NULL)
-    {
-        Timer_CallBacks[TIMER_CHANNEL_0][TIMER_INT_COMPARE_MATCH]();
-    }
-}
-
-/* Timer0 Overflow ISR (__vector_11) */
-void __vector_11(void)
-{
-    if (Timer_CallBacks[TIMER_CHANNEL_0][TIMER_INT_OVERFLOW] != NULL)
-    {
-        Timer_CallBacks[TIMER_CHANNEL_0][TIMER_INT_OVERFLOW]();
-    }
-}
-uint16_h Timer_GetTick(void)
-{
-    return g_timerTick;
 }
