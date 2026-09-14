@@ -1,5 +1,5 @@
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#ifndef SMART_GREEN_HOUSE_APP_CONSOLE_MODULE_CONSOLE_H
+#define SMART_GREEN_HOUSE_APP_CONSOLE_MODULE_CONSOLE_H
 
 #include <stddef.h>
 #include <stdbool.h>
