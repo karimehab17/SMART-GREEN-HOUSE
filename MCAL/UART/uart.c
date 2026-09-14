@@ -1,10 +1,4 @@
-/*
- * Author: Ahmed Ellamie
- * Email:  ahmed.ellamiee@gmail.com
- *
- * STUDENT TASK — UART.c  (ATmega32 USART, 8N1 polling)
- * Implement every prototype from UART_interface.h.
- */
+
 
 #include "STD_TYPES.h"
 #include "UART_interface.h"
@@ -19,31 +13,21 @@
  * 4. UCSRB = RXEN | TXEN.
  * 5. At 8 MHz, 9600 baud -> UBRR = 51.
  */
+STD_ReturnType UART_Init(uint32 Copy_u32BaudRate){
+    uint16 local_u16Ubr = 0;
 
-/*
- * UART_SendByte
- * 1. while (UDRE == 0) ;   then UDR = Copy_u8Data.
- */
+    if (Copy_u32BaudRate == 0U)
+    {
+        return E_NOK;
+    }
 
-/*
- * UART_ReceiveByte
- * 1. Reject a NULL pointer.
- * 2. while (RXC == 0) ;    then *Copy_pu8Data = UDR.
- */
+    local_u16Ubr = (uint16)(((F_CPU / (16UL * Copy_u32BaudRate)) - 1UL));
 
-/*
- * UART_SendString
- * 1. Reject a NULL pointer.
- * 2. Send bytes until '\0'. Do not send the terminator unless the lab asks.
- */
+    UBRRH = (uint8)(local_u16Ubr >> 8);
+    UBRRL = (uint8)(local_u16Ubr & 0xFFU);
 
-/*
- * UART_IsDataReady
- * 1. Return E_OK if RXC is 1, else E_NOK.
- */
+    UCSRC = (uint8)((1U << URSEL) | (1U << UCSZ1) | (1U << UCSZ0));
+    UCSRB = (uint8)(1U << RXEN) | (1U << TXEN) | (1U << RXCIE);;
 
-/*
- * UART_SetRxInterrupt / UART_SetTxInterrupt
- * 1. Set or clear RXCIE / UDRIE in UCSRB.
- * 2. Vectors: USART_RXC_vect , USART_UDRE_vect.
- */
+    return E_OK;
+}

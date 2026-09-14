@@ -280,13 +280,13 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 
 ## 10. Final Demo Checklist
 
-- [ ] Temperature sensor changes correctly.
-- [ ] Soil moisture sensor changes correctly.
-- [ ] Light sensor changes correctly.
+- [x] Temperature sensor changes correctly.
+- [x] Soil moisture sensor changes correctly.
+- [x] Light sensor changes correctly.
 - [ ] Fan responds with hysteresis.
 - [ ] Pump responds with hysteresis.
 - [ ] Lamp responds with hysteresis.
-- [ ] Alarm activates at the specified limits.
+- [x] Alarm activates at the specified limits.
 - [ ] Alarm reset works.
 - [ ] Mode button works.
 - [ ] LCD displays live values and system state.
