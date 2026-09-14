@@ -218,7 +218,67 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 
 ---
 
-## 9. Final Demo Checklist
+ ## 9. Team Members & Responsibilities
+
+### Member 1 (Karim Ehab Gamal)
+#### MCAL Drivers
+- **GPIO / DIO Driver**
+  - Configures GPIO pins and handles digital input/output operations.
+- **ADC Driver**
+  - Handles ADC0, ADC1, and ADC2 for the three analog sensors.
+- **Timer Driver**
+  - Configures Timer0 in CTC mode for the 10 ms system tick.
+- **I2C / TWI Driver**
+  - Provides I2C communication for the PCF8574 LCD interface.
+
+#### HAL
+- **Sensors Driver**
+  - Reads temperature, soil moisture, and light sensors through the ADC.
+  - Handles sensor scaling and filtering.
+
+- **Actuators Driver**
+  - Controls the Fan, Pump, Lamp, and Alarm outputs.
+
+#### Application
+- **Scheduler**
+  - Runs system tasks according to their configured periods.
+- **Control**
+  - Implements hysteresis control for the Fan, Pump, and Lamp.
+
+### Member 2 (Ahmed Mohsen El-Shabrawy)
+#### MCAL Drivers
+- **Interrupt / EXTI Driver**
+  - Handles INT0 and INT1 external interrupts.
+- **USART / UART Driver**
+  - Handles UART communication at 9600 8N1.
+
+#### HAL
+- **Buttons Driver**
+  - Handles Mode, Save, and Alarm Reset buttons with software debouncing.
+- **LCD I2C Driver**
+  - Controls the 16×2 LCD through the PCF8574 I2C interface.
+
+#### Application
+- **Greenhouse FSM**
+  - Manages system states and transitions between AUTO, MANUAL, ALARM, CONFIG, and initialization states.
+- **Report**
+  - Sends greenhouse status through UART every 5 seconds.
+- **Console**
+  - Receives and parses UART commands.
+
+### Shared Responsibilities
+- **System Integration**
+  - Integrate all MCAL, HAL, and Application modules.
+- **Testing & Debugging**
+  - Test the complete system in SimulIDE and troubleshoot integration issues.
+- **Code Review**
+  - Review each other's code and verify API compatibility before integration.
+- **Final Demo**
+  - Perform the final system verification and demonstration together.
+
+---
+
+## 10. Final Demo Checklist
 
 - [ ] Temperature sensor changes correctly.
 - [ ] Soil moisture sensor changes correctly.
