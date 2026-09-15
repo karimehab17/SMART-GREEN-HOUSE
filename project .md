@@ -231,6 +231,9 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 
 - **UART Driver**
   - Handles UART communication at 9600 8N1.
+  
+- **I2C Driver**
+  - Master mode, 100 kHz, TWBR = 32, used for communication between the ATmega32 and PCF8574 to control the LCD..
 
 #### HAL
 - **Sensors Driver**
