@@ -8,6 +8,7 @@
 #define ACTUATOR_PUMP_PIN     GPIO_PIN1     /* PB1 */
 #define ACTUATOR_LAMP_PIN     GPIO_PIN2     /* PB2 */
 #define ACTUATOR_ALARM_PIN    GPIO_PIN3     /* PB3 */
+#define ACTUATOR_BUZZER_PIN   GPIO_PIN7     /* PD7 */
 
 static uint8 ACT_GetPinForActuator(ActuatorType actuator, uint8 *pPort, uint8 *pPin)
 {
@@ -22,6 +23,8 @@ static uint8 ACT_GetPinForActuator(ActuatorType actuator, uint8 *pPort, uint8 *p
         case ACTUATOR_PUMP:  *pPort = GPIO_PORTB; *pPin = ACTUATOR_PUMP_PIN;  return 1U;
         case ACTUATOR_LAMP:  *pPort = GPIO_PORTB; *pPin = ACTUATOR_LAMP_PIN;  return 1U;
         case ACTUATOR_ALARM:*pPort = GPIO_PORTB; *pPin = ACTUATOR_ALARM_PIN; return 1U;
+        case ACTUATOR_BUZZER:*pPort = GPIO_PORTD;*pPin = ACTUATOR_BUZZER_PIN;
+    return 1U;
         default:            return 0U;
     }
 }
@@ -44,11 +47,16 @@ STD_ReturnType ACT_Init(void)
     {
         return E_NOK;
     }
+    if (GPIO_SetPinDirection(GPIO_PORTD, ACTUATOR_BUZZER_PIN, GPIO_OUTPUT) != E_OK)
+    {
+    return E_NOK;
+    }
 
     (void)GPIO_SetPinValue(GPIO_PORTB, ACTUATOR_FAN_PIN, GPIO_LOW);
     (void)GPIO_SetPinValue(GPIO_PORTB, ACTUATOR_PUMP_PIN, GPIO_LOW);
     (void)GPIO_SetPinValue(GPIO_PORTB, ACTUATOR_LAMP_PIN, GPIO_LOW);
     (void)GPIO_SetPinValue(GPIO_PORTB, ACTUATOR_ALARM_PIN, GPIO_LOW);
+    (void)GPIO_SetPinValue(GPIO_PORTD, ACTUATOR_BUZZER_PIN, GPIO_LOW);
 
     return E_OK;
 }

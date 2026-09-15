@@ -10,6 +10,7 @@ typedef enum
     ACTUATOR_PUMP,
     ACTUATOR_LAMP,
     ACTUATOR_ALARM,
+    ACTUATOR_BUZZER,
     ACTUATOR_COUNT
 } ActuatorType;
 

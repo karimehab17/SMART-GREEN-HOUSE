@@ -1,14 +1,10 @@
-#include "lcd_i2c.h"
+#include "Actuators_Driver.h"
 
 int main(void)
 {
-    LCD_Init();
+    ACT_Init();
 
-    LCD_Goto(0u, 0u);
-    LCD_Print("Karim");
-
-    LCD_Goto(1u, 0u);
-    LCD_Print("Ehab");
+    ACT_Set(ACTUATOR_BUZZER, ACT_STATE_ON);
 
     while (1)
     {
