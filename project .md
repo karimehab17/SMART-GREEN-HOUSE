@@ -240,6 +240,9 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 - **Actuators Driver**
   - Controls the Fan, Pump, Lamp, and Alarm outputs.
 
+- **LCD I2C Driver**
+   - Controls the 16×2 LCD through the built-in I2C interface of the AiP31068 LCD controller.
+
 #### Application
 - **Scheduler**
   - Runs system tasks according to their configured periods.
@@ -255,8 +258,6 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 #### HAL
 - **Buttons Driver**
   - Handles Mode, Save, and Alarm Reset buttons with software debouncing.
-- **LCD I2C Driver**
-  - Controls the 16×2 LCD through the PCF8574 I2C interface.
 
 #### Application
 - **Greenhouse FSM**
