@@ -290,7 +290,7 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 - [x] Alarm activates at the specified limits.
 - [ ] Alarm reset works.
 - [ ] Mode button works.
-- [ ] LCD displays live values and system state.
+- [x] LCD displays live values and system state.
 - [ ] UART sends status every 5 seconds.
 - [ ] UART commands are received correctly.
 - [ ] No SPI-related code or hardware remains.
