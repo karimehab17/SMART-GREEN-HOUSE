@@ -3,6 +3,24 @@
 
 #include"STD_TYPES.h"
 #include "../MCAL/ADC/ADC_interface.h"
+#include "GPIO_interface.h"
+
+/* ================= Actuator Configuration ================= */
+
+#define ACTUATOR_FAN_PORT       GPIO_PORTB
+#define ACTUATOR_FAN_PIN        GPIO_PIN0
+
+#define ACTUATOR_PUMP_PORT      GPIO_PORTB
+#define ACTUATOR_PUMP_PIN       GPIO_PIN1
+
+#define ACTUATOR_LAMP_PORT      GPIO_PORTB
+#define ACTUATOR_LAMP_PIN       GPIO_PIN2
+
+#define ACTUATOR_ALARM_PORT     GPIO_PORTB
+#define ACTUATOR_ALARM_PIN      GPIO_PIN3
+
+#define ACTUATOR_BUZZER_PORT    GPIO_PORTD
+#define ACTUATOR_BUZZER_PIN     GPIO_PIN7
 
 /* ================= Sensor Configuration ================= */
 
