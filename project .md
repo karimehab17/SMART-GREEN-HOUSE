@@ -222,14 +222,14 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 
 ### Member 1 (Karim Ehab Gamal)
 #### MCAL Drivers
-- **GPIO / DIO Driver**
+- **GPIO Driver**
   - Configures GPIO pins and handles digital input/output operations.
 - **ADC Driver**
   - Handles ADC0, ADC1, and ADC2 for the three analog sensors.
 - **Timer Driver**
   - Configures Timer0 in CTC mode for the 10 ms system tick.
 
-  - **USART / UART Driver**
+  - **UART Driver**
   - Handles UART communication at 9600 8N1.
 
 #### HAL
