@@ -1,6 +1,7 @@
 #include "Actuators_Driver.h"
 #include "../../MCAL/GPIO/gpio_interface.h"
 #include "STD_TYPES.h"
+#include "config.h"
 #include <stddef.h>
 
 #define ACTUATOR_FAN_PIN      GPIO_PIN0     /* PB0 */

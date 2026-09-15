@@ -2,6 +2,7 @@
 #define ACTUATORS_DRIVER_H
 
 #include "STD_Types.h"
+#include "config.h"
 
 typedef enum
 {

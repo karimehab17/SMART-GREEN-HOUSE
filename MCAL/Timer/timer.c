@@ -8,19 +8,7 @@
  * Fallback timer mode definitions for projects where the generated
  * interface header does not provide them yet.
  */
-#ifndef TIMER0_NORMAL
-#define TIMER0_NORMAL 0u
-#define TIMER0_PHASE_CORRECT 1u
-#define TIMER0_CTC 2u
-#define TIMER0_FAST_PWM 3u
-#endif
 
-#ifndef TIMER0_OC_DISCONNECT
-#define TIMER0_OC_DISCONNECT 0u
-#define TIMER0_OC_TOGGLE 1u
-#define TIMER0_OC_NON_INVERT 2u
-#define TIMER0_OC_INVERT 3u
-#endif
 
 #ifndef TIMER1_NORMAL
 #define TIMER1_NORMAL 0u

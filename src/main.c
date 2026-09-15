@@ -1,56 +1,45 @@
 #include "STD_TYPES.h"
-#include "Sensors_Driver.h"
-#include "Actuators_Driver.h"
-#include <util/delay.h>
+#include "config.h"
+#include "control.h"
 
 int main(void)
 {
-    uint16 tempRaw = 0;
-    uint16 soilRaw = 0;
-    uint16 lightRaw = 0;
+    Config_t config =
+    {
+        .magic = CFG_MAGIC,
+        .version = CFG_VERSION,
 
-    uint8 temp = 0;
-    uint8 soil = 0;
-    uint8 light = 0;
+        .tempOnC = 35u,
+        .tempOffC = 32u,
 
-    /* Initialize Sensors + Actuators */
-    Sensors_Init();
-    ACT_Init();
+        .soilOnPct = 40u,
+        .soilOffPct = 60u,
+
+        .lightOnPct = 25u,
+        .lightOffPct = 40u,
+
+        .tempAlarmC = 45u,
+        .soilAlarmPct = 15u,
+
+        .mode = 0u,
+        .checksum = 0u
+    };
+
+    if (CTRL_Init(&config) != CONTROL_OK)
+    {
+        while (1)
+        {
+            /* Initialization error */
+        }
+    }
 
     while (1)
     {
-        /* Read all sensors */
-        Sensors_ReadRaw(&tempRaw, &soilRaw, &lightRaw);
-
-        /* Convert ADC readings */
-        Sensors_ScaleTempC(tempRaw, &temp);
-        Sensors_ScalePct(soilRaw, &soil);
-        Sensors_ScalePct(lightRaw, &light);
-
-        /* FAN: Temperature > 25°C */
-        if (temp > 25)
-            ACT_Set(ACTUATOR_FAN, ACT_STATE_ON);
-        else
-            ACT_Set(ACTUATOR_FAN, ACT_STATE_OFF);
-
-        /* PUMP: Soil < 50% */
-        if (soil < 50)
-            ACT_Set(ACTUATOR_PUMP, ACT_STATE_ON);
-        else
-            ACT_Set(ACTUATOR_PUMP, ACT_STATE_OFF);
-
-        /* LAMP: Light < 50% */
-        if (light < 50)
-            ACT_Set(ACTUATOR_LAMP, ACT_STATE_ON);
-        else
-            ACT_Set(ACTUATOR_LAMP, ACT_STATE_OFF);
-
-        /* ALARM: Temperature > 45°C */
-        if (temp > 45)
-            ACT_Set(ACTUATOR_ALARM, ACT_STATE_ON);
-        else
-            ACT_Set(ACTUATOR_ALARM, ACT_STATE_OFF);
-
-        _delay_ms(200);
+        /*
+         * Temporary integration point.
+         * Scheduler will call the control tasks later.
+         */
     }
+
+    return 0;
 }

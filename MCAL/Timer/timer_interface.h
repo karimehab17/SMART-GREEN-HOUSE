@@ -1,26 +1,31 @@
 #ifndef TIMER_INTERFACE_H
 #define TIMER_INTERFACE_H
 
-/*
- * Author: Ahmed Ellamie
- * Email:  ahmed.ellamiee@gmail.com
- *
- * MCAL TIMER — simple API for ATmega32 Timer0 and Timer1 at F_CPU = 8 MHz.
- *
- * Include this header from HAL, Logic, and main.
- * Do not include TIMER_private.h there — registers and bit numbers stay inside
- * TIMER.c, together with the static helpers only that file needs.
- *
- * Pins : OC0 = PB3 (Timer0 PWM) , OC1A = PD5 (Timer1 PWM).
- *        Make the pin an output with GPIO before you expect a wave on it.
- *
- * Delays here are blocking, like _delay_ms, but timed by the hardware counter
- * instead of a software loop.
- */
-
 #include "../../LIB/STD_TYPES.h"
 
-/*========================== Timer0 — 8-bit ==========================*/
+/*========================== Timer0 Modes ==========================*/
+
+#define TIMER0_NORMAL          0u
+#define TIMER0_PHASE_CORRECT  1u
+#define TIMER0_CTC            2u
+#define TIMER0_FAST_PWM       3u
+
+/* Timer0 Clock Select / Prescaler */
+#define TIMER0_STOP            0u
+#define TIMER0_PRESC_1         1u
+#define TIMER0_PRESC_8         2u
+#define TIMER0_PRESC_64        3u
+#define TIMER0_PRESC_256       4u
+#define TIMER0_PRESC_1024      5u
+#define TIMER0_EXT_FALLING     6u
+#define TIMER0_EXT_RISING      7u
+
+/* Timer0 Compare Output Mode */
+#define TIMER0_OC_DISCONNECT   0u
+#define TIMER0_OC_TOGGLE       1u
+#define TIMER0_OC_NON_INVERT   2u
+#define TIMER0_OC_INVERT       3u
+
 
 /*
  * Description : Prepare Timer0 for the delay functions (1 ms tick).

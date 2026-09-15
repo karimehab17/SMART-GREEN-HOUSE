@@ -1,19 +1,19 @@
-#include "Actuators_Driver.h"
 #include "control.h"
+#include "Actuators_Driver.h"
 #include "Sensors_Driver.h"
 #include "STD_TYPES.h"
+#include <stddef.h>
 
-#define TEMP_HIGH_THRESHOLD_C     35u
-#define TEMP_LOW_THRESHOLD_C      32u
+static Config_t *g_pConfig = NULL;
 
-#define SOIL_LOW_THRESHOLD_PCT    40u
-#define SOIL_HIGH_THRESHOLD_PCT   60u
 
-#define LIGHT_LOW_THRESHOLD_PCT   25u
-#define LIGHT_HIGH_THRESHOLD_PCT  40u
-
-CONTROL_Status_t CTRL_Init(void)
+CONTROL_Status_t CTRL_Init(Config_t *pConfig)
 {
+    if (pConfig == NULL)
+    {
+        return CONTROL_ERROR;
+    }
+
     if (ACT_Init() != E_OK)
     {
         return CONTROL_ERROR;
@@ -24,54 +24,127 @@ CONTROL_Status_t CTRL_Init(void)
         return CONTROL_ERROR;
     }
 
+    g_pConfig = pConfig;
+
     return CONTROL_OK;
 }
 
-CONTROL_Status_t CTRL_Update(void)
+
+/* =========================================================
+ * Thermal Control
+ * Fan hysteresis:
+ * ON  : temperature > tempOnC
+ * OFF : temperature < tempOffC
+ * ========================================================= */
+
+CONTROL_Status_t CTRL_UpdateThermal(void)
 {
     uint16 rawTemp = 0u;
-    uint16 rawSoil = 0u;
-    uint16 rawLight = 0u;
-
     uint8 tempC = 0u;
-    uint8 soilPct = 0u;
-    uint8 lightPct = 0u;
 
-    if (Sensors_ReadRaw(&rawTemp, &rawSoil, &rawLight) != E_OK)
+    if (g_pConfig == NULL)
     {
         return CONTROL_ERROR;
     }
 
-    (void)Sensors_ScaleTempC(rawTemp, &tempC);
-    (void)Sensors_ScalePct(rawSoil, &soilPct);
-    (void)Sensors_ScalePct(rawLight, &lightPct);
+    if (Sensors_ReadRaw(&rawTemp, NULL, NULL) != E_OK)
+    {
+        return CONTROL_ERROR;
+    }
 
- if (tempC > TEMP_HIGH_THRESHOLD_C)
-{
-    (void)ACT_Set(ACTUATOR_FAN, ACT_STATE_ON);
-}
-else if (tempC < TEMP_LOW_THRESHOLD_C)
-{
-    (void)ACT_Set(ACTUATOR_FAN, ACT_STATE_OFF);
+    if (Sensors_ScaleTempC(rawTemp, &tempC) != E_OK)
+    {
+        return CONTROL_ERROR;
+    }
+
+    if (tempC > g_pConfig->tempOnC)
+    {
+        (void)ACT_Set(ACTUATOR_FAN, ACT_STATE_ON);
+    }
+    else if (tempC < g_pConfig->tempOffC)
+    {
+        (void)ACT_Set(ACTUATOR_FAN, ACT_STATE_OFF);
+    }
+
+    return CONTROL_OK;
 }
 
-if (soilPct < SOIL_LOW_THRESHOLD_PCT)
+
+/* =========================================================
+ * Irrigation Control
+ * Pump hysteresis:
+ * ON  : soil < soilOnPct
+ * OFF : soil > soilOffPct
+ * ========================================================= */
+
+CONTROL_Status_t CTRL_UpdateIrrigation(void)
 {
-    (void)ACT_Set(ACTUATOR_PUMP, ACT_STATE_ON);
-}
-else if (soilPct > SOIL_HIGH_THRESHOLD_PCT)
-{
-    (void)ACT_Set(ACTUATOR_PUMP, ACT_STATE_OFF);
+    uint16 rawSoil = 0u;
+    uint8 soilPct = 0u;
+
+    if (g_pConfig == NULL)
+    {
+        return CONTROL_ERROR;
+    }
+
+    if (Sensors_ReadRaw(NULL, &rawSoil, NULL) != E_OK)
+    {
+        return CONTROL_ERROR;
+    }
+
+    if (Sensors_ScalePct(rawSoil, &soilPct) != E_OK)
+    {
+        return CONTROL_ERROR;
+    }
+
+    if (soilPct < g_pConfig->soilOnPct)
+    {
+        (void)ACT_Set(ACTUATOR_PUMP, ACT_STATE_ON);
+    }
+    else if (soilPct > g_pConfig->soilOffPct)
+    {
+        (void)ACT_Set(ACTUATOR_PUMP, ACT_STATE_OFF);
+    }
+
+    return CONTROL_OK;
 }
 
-if (lightPct < LIGHT_LOW_THRESHOLD_PCT)
+
+/* =========================================================
+ * Photo Control
+ * Lamp hysteresis:
+ * ON  : light < lightOnPct
+ * OFF : light > lightOffPct
+ * ========================================================= */
+
+CONTROL_Status_t CTRL_UpdatePhoto(void)
 {
-    (void)ACT_Set(ACTUATOR_LAMP, ACT_STATE_ON);
-}
-else if (lightPct > LIGHT_HIGH_THRESHOLD_PCT)
-{
-    (void)ACT_Set(ACTUATOR_LAMP, ACT_STATE_OFF);
-}
+    uint16 rawLight = 0u;
+    uint8 lightPct = 0u;
+
+    if (g_pConfig == NULL)
+    {
+        return CONTROL_ERROR;
+    }
+
+    if (Sensors_ReadRaw(NULL, NULL, &rawLight) != E_OK)
+    {
+        return CONTROL_ERROR;
+    }
+
+    if (Sensors_ScalePct(rawLight, &lightPct) != E_OK)
+    {
+        return CONTROL_ERROR;
+    }
+
+    if (lightPct < g_pConfig->lightOnPct)
+    {
+        (void)ACT_Set(ACTUATOR_LAMP, ACT_STATE_ON);
+    }
+    else if (lightPct > g_pConfig->lightOffPct)
+    {
+        (void)ACT_Set(ACTUATOR_LAMP, ACT_STATE_OFF);
+    }
 
     return CONTROL_OK;
 }
