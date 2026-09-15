@@ -76,7 +76,7 @@ UART is used for telemetry and text commands.
 
 ### MCAL Drivers
 
-- **DIO Driver** (`dio.c / dio.h`)
+- **GPIO Driver** (`gpio.c / gpio.h`)
   - Configures GPIO pins and handles digital input/output operations.
 
 - **ADC Driver** (`adc.c / adc.h`)
@@ -86,10 +86,10 @@ UART is used for telemetry and text commands.
   - Configures Timer0 in CTC mode to generate the 10 ms system tick.
   - Timer2 may be used for the buzzer PWM as a bonus feature.
 
-- **EXTI Driver** (`exti.c / exti.h`)
+- **EXTI Driver** (`interrupt.c / interrupt.h`)
   - Handles INT0 and INT1 external interrupts.
 
-- **USART Driver** (`usart.c / usart.h`)
+- **USART Driver** (`uart.c / uart.h`)
   - Handles UART communication at 9600 8N1.
 
 - **I2C / TWI Driver** (`i2c.c / i2c.h`)
