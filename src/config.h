@@ -1,6 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include"STD_TYPES.h"
 #include "../MCAL/ADC/ADC_interface.h"
 
 /* ================= Sensor Configuration ================= */
@@ -53,6 +54,26 @@ typedef struct
     uint8  mode;
     uint8  checksum;
 
+/* ================= LCD Configuration ================= */
+
+#define LCD_I2C_ADDRESS        0x3Eu
+
+#define LCD_COMMAND_CONTROL    0x00u
+#define LCD_DATA_CONTROL       0x40u
+
+#define LCD_FUNCTION_SET       0x38u
+#define LCD_DISPLAY_ON         0x0Cu
+#define LCD_CLEAR_DISPLAY      0x01u
+#define LCD_ENTRY_MODE         0x06u
+
+#define LCD_LINE0_ADDRESS      0x80u
+#define LCD_LINE1_ADDRESS      0xC0u
+
+#define LCD_I2C_FREQUENCY      100000UL
+
+#define LCD_INIT_DELAY_MS      50u
+#define LCD_WRITE_DELAY_MS     2u
+#define LCD_CLEAR_DELAY_MS     2u
 } Config_t;
 
 #endif /* CONFIG_H */

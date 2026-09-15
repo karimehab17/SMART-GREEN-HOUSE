@@ -1,12 +1,6 @@
 #ifndef STD_TYPES_H
 #define STD_TYPES_H
 
-/*
- * Author: Ahmed Ellamie
- * Email:  ahmed.ellamiee@gmail.com
- *
- * Shared standard types for AVR_NTI LIB / MCAL / HAL / Logic.
- */
 
 typedef unsigned char uint8;
 typedef unsigned short uint16;

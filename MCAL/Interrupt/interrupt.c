@@ -1,10 +1,3 @@
-/*
- * Author: Ahmed Ellamie
- * Email:  ahmed.ellamiee@gmail.com
- *
- * STUDENT TASK — INTERRUPT.c  (ATmega32 EXTI + global I-bit)
- * Implement every prototype from INTERRUPT_interface.h.
- */
 
 #include "STD_TYPES.h"
 #include "INTERRUPT_interface.h"
