@@ -228,8 +228,9 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
   - Handles ADC0, ADC1, and ADC2 for the three analog sensors.
 - **Timer Driver**
   - Configures Timer0 in CTC mode for the 10 ms system tick.
-- **I2C / TWI Driver**
-  - Provides I2C communication for the PCF8574 LCD interface.
+
+  - **USART / UART Driver**
+  - Handles UART communication at 9600 8N1.
 
 #### HAL
 - **Sensors Driver**
@@ -249,8 +250,7 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 #### MCAL Drivers
 - **Interrupt / EXTI Driver**
   - Handles INT0 and INT1 external interrupts.
-- **USART / UART Driver**
-  - Handles UART communication at 9600 8N1.
+
 
 #### HAL
 - **Buttons Driver**
@@ -283,9 +283,9 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 - [x] Temperature sensor changes correctly.
 - [x] Soil moisture sensor changes correctly.
 - [x] Light sensor changes correctly.
-- [ ] Fan responds with hysteresis.
-- [ ] Pump responds with hysteresis.
-- [ ] Lamp responds with hysteresis.
+- [x] Fan responds with hysteresis.
+- [x] Pump responds with hysteresis.
+- [x] Lamp responds with hysteresis.
 - [x] Alarm activates at the specified limits.
 - [ ] Alarm reset works.
 - [ ] Mode button works.
