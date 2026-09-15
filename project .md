@@ -229,7 +229,7 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 - **Timer Driver**
   - Configures Timer0 in CTC mode for the 10 ms system tick.
 
-  - **UART Driver**
+- **UART Driver**
   - Handles UART communication at 9600 8N1.
 
 #### HAL
