@@ -8,7 +8,6 @@
 #define SENSOR_SOIL_CHANNEL   ADC_CHANNEL_1
 #define SENSOR_LIGHT_CHANNEL  ADC_CHANNEL_2
 
-/* ADC reference & prescaler for sensor sampling */
 #define SENSOR_ADC_REFERENCE  ADC_REF_AVCC
 #define SENSOR_ADC_PRESCALER  ADC_PRESC_64
 
