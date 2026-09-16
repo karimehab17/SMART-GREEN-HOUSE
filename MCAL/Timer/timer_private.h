@@ -1,94 +1,57 @@
 #ifndef TIMER_PRIVATE_H
 #define TIMER_PRIVATE_H
 
-/*
- * Author: Ahmed Ellamie
- * Email:  ahmed.ellamiee@gmail.com
- *
- * STUDENT TASK — TIMER private layer (ATmega32)
- * Include this file ONLY from TIMER.c.
- *
- * What you must add here:
- * 1. Timer0 registers (I/O space):
- *      TCCR0  0x53    FOC0 WGM00 COM01 COM00 WGM01 CS02 CS01 CS00
- *      TCNT0  0x52
- *      OCR0   0x5C
- * 2. Timer1 registers:
- *      TCCR1A 0x4F    COM1A1 COM1A0 COM1B1 COM1B0 FOC1A FOC1B WGM11 WGM10
- *      TCCR1B 0x4E    ICNC1  ICES1  – WGM13 WGM12 CS12 CS11 CS10
- *      TCNT1  0x4C    (16-bit, write high byte first)
- *      OCR1A  0x4A
- *      ICR1   0x46
- * 3. Shared:
- *      TIMSK  0x59    OCIE2 TOIE2 TICIE1 OCIE1A OCIE1B TOIE1 OCIE0 TOIE0
- *      TIFR   0x58    matching flags — write 1 to clear
- *
- * 4. Bit-position macros for WGM, CS, COM, TOIE0, OCIE0, OCF0, TOV0.
- *
- * 5. Remember: a flag is cleared by writing 1 to it (w1c).
- */
-#define TIMER0_REG_TCCR0 (*(volatile uint8 *)0x53)
-#define TIMER0_REG_TCNT0 (*(volatile uint8 *)0x52)
-#define TIMER0_REG_OCR0 (*(volatile uint8 *)0x5C)
+#include "../../LIB/STD_TYPES.h"
 
-#define TIMER1_REG_TCCR1A (*(volatile uint8 *)0x4F)
-#define TIMER1_REG_TCCR1B (*(volatile uint8 *)0x4E)
-#define TIMER1_REG_TCNT1 (*(volatile uint16 *)0x4C)
-#define TIMER1_REG_OCR1A (*(volatile uint16 *)0x4A)
-#define TIMER1_REG_ICR1 (*(volatile uint16 *)0x46)
+/* ==================== Timer0 Registers ==================== */
 
-#define TIMSK_REG (*(volatile uint8 *)0x59)
-#define TIFR_REG (*(volatile uint8 *)0x58)
+#define TIMER0_TCCR0_REG    (*(volatile uint8*)0x53U)
+#define TIMER0_TCNT0_REG    (*(volatile uint8*)0x52U)
+#define TIMER0_OCR0_REG     (*(volatile uint8*)0x5CU)
 
-/* Timer0 bit positions */
-#define FOC0 7
-#define WGM00 6
-#define COM01 5
-#define COM00 4
-#define WGM01 3
-#define CS02 2
-#define CS01 1
-#define CS00 0
-#define TOIE0 0
-#define OCIE0 1
-#define OCF0 1
-#define TOV0 0
+/* ==================== Timer2 Registers ==================== */
 
-/* Timer1 bit positions */
-#define COM1A1 7
-#define COM1A0 6
-#define COM1B1 5
-#define COM1B0 4
-#define FOC1A 3
-#define FOC1B 2
-#define WGM11 1
-#define WGM10 0
-#define ICNC1 7
-#define ICES1 6
-#define WGM13 4
-#define WGM12 3
-#define CS12 2
-#define CS11 1
-#define CS10 0
-#define TOV1 2
+#define TIMER2_TCCR2_REG    (*(volatile uint8*)0x45U)
+#define TIMER2_TCNT2_REG    (*(volatile uint8*)0x44U)
+#define TIMER2_OCR2_REG     (*(volatile uint8*)0x43U)
 
-/* Timer2 registers */
-#define TIMER2_REG_TCCR2 (*(volatile uint8 *)0x45)
-#define TIMER2_REG_TCNT2 (*(volatile uint8 *)0x44)
-#define TIMER2_REG_OCR2  (*(volatile uint8 *)0x43)
+/* ==================== Shared Registers ==================== */
 
-/* Timer2 bit positions */
-#define FOC2  7
-#define WGM20 6
-#define COM21 5
-#define COM20 4
-#define WGM21 3
-#define CS22  2
-#define CS21  1
-#define CS20  0
+#define TIMER_TIMSK_REG     (*(volatile uint8*)0x59U)
+#define TIMER_TIFR_REG      (*(volatile uint8*)0x58U)
 
-/* Timer2 interrupt bits */
-#define OCIE2 7
-#define TOIE2 6
+/* ==================== Timer0 Bits ==================== */
+
+#define TIMER0_FOC0_BIT     7U
+#define TIMER0_WGM00_BIT    6U
+#define TIMER0_COM01_BIT    5U
+#define TIMER0_COM00_BIT    4U
+#define TIMER0_WGM01_BIT    3U
+#define TIMER0_CS02_BIT     2U
+#define TIMER0_CS01_BIT     1U
+#define TIMER0_CS00_BIT     0U
+
+/* ==================== Timer0 Interrupt Bits ==================== */
+
+#define TIMER0_TOIE0_BIT    0U
+#define TIMER0_OCIE0_BIT    1U
+#define TIMER0_TOV0_BIT     0U
+#define TIMER0_OCF0_BIT     1U
+
+/* ==================== Timer2 Bits ==================== */
+
+#define TIMER2_FOC2_BIT     7U
+#define TIMER2_WGM20_BIT    6U
+#define TIMER2_COM21_BIT    5U
+#define TIMER2_COM20_BIT    4U
+#define TIMER2_WGM21_BIT    3U
+#define TIMER2_CS22_BIT     2U
+#define TIMER2_CS21_BIT     1U
+#define TIMER2_CS20_BIT     0U
+
+/* ==================== Timer2 Interrupt Bits ==================== */
+
+#define TIMER2_OCIE2_BIT    7U
+#define TIMER2_TOIE2_BIT    6U
 
 #endif /* TIMER_PRIVATE_H */

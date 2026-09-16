@@ -1,39 +1,39 @@
+#include "../../LIB/STD_TYPES.h"
+#include "../../LIB/Math.h"
+#include "config.h"
 
-
-#include "STD_TYPES.h"
 #include "TIMER_interface.h"
 #include "TIMER_private.h"
 
-/*
- * Fallback timer mode definitions for projects where the generated
- * interface header does not provide them yet.
- */
+
+/* =========================================================
+ *                     Private Helpers
+ * ========================================================= */
+
+static void TIMER0_ClearClockSelect(void)
+{
+    TIMER0_TCCR0_REG &= (uint8)~(
+        (1U << TIMER0_CS02_BIT) |
+        (1U << TIMER0_CS01_BIT) |
+        (1U << TIMER0_CS00_BIT)
+    );
+}
 
 
-#ifndef TIMER1_NORMAL
-#define TIMER1_NORMAL 0u
-#define TIMER1_CTC_OCR1A 4u
-#define TIMER1_FAST_PWM_8BIT 5u
-#define TIMER1_FAST_PWM_ICR1 14u
-#endif
+static void TIMER2_ClearClockSelect(void)
+{
+    TIMER2_TCCR2_REG &= (uint8)~(
+        (1U << TIMER2_CS22_BIT) |
+        (1U << TIMER2_CS21_BIT) |
+        (1U << TIMER2_CS20_BIT)
+    );
+}
 
-#ifndef TIMER_EXT_RISING
-#define TIMER_EXT_RISING 7u
-#endif
 
 /* =========================================================
  *                         TIMER0
  * ========================================================= */
 
-/*
- * TIMER0_Init
- * 1. Reject an unknown mode.
- * 2. NORMAL          : WGM01=0 WGM00=0
- *    PHASE_CORRECT   : WGM01=0 WGM00=1
- *    CTC             : WGM01=1 WGM00=0
- *    FAST_PWM        : WGM01=1 WGM00=1
- * 3. Do not change CS02:0 here — TIMER0_Start owns the clock.
- */
 STD_ReturnType TIMER0_Init(uint8 Copy_u8Mode)
 {
     if (Copy_u8Mode > TIMER0_FAST_PWM)
@@ -41,257 +41,83 @@ STD_ReturnType TIMER0_Init(uint8 Copy_u8Mode)
         return E_NOK;
     }
 
-    /* Clear WGM01:WGM00 */
-    TIMER0_REG_TCCR0 &= ~((1u << WGM01) | (1u << WGM00));
+    TIMER0_TCCR0_REG &= (uint8)~(
+        (1U << TIMER0_WGM01_BIT) |
+        (1U << TIMER0_WGM00_BIT)
+    );
 
     switch (Copy_u8Mode)
     {
-    case TIMER0_NORMAL:
-        /* WGM01=0, WGM00=0 */
-        break;
+        case TIMER0_NORMAL:
+            break;
 
-    case TIMER0_PHASE_CORRECT:
-        /* WGM01=0, WGM00=1 */
-        TIMER0_REG_TCCR0 |= (1u << WGM00);
-        break;
+        case TIMER0_PHASE_CORRECT:
+            SET_BIT(TIMER0_TCCR0_REG, TIMER0_WGM00_BIT);
+            break;
 
-    case TIMER0_CTC:
-        /* WGM01=1, WGM00=0 */
-        TIMER0_REG_TCCR0 |= (1u << WGM01);
-        break;
+        case TIMER0_CTC:
+            SET_BIT(TIMER0_TCCR0_REG, TIMER0_WGM01_BIT);
+            break;
 
-    case TIMER0_FAST_PWM:
-        /* WGM01=1, WGM00=1 */
-        TIMER0_REG_TCCR0 |= (1u << WGM01) |
-                            (1u << WGM00);
-        break;
+        case TIMER0_FAST_PWM:
+            SET_BIT(TIMER0_TCCR0_REG, TIMER0_WGM01_BIT);
+            SET_BIT(TIMER0_TCCR0_REG, TIMER0_WGM00_BIT);
+            break;
 
-    default:
-        return E_NOK;
+        default:
+            return E_NOK;
     }
 
     return E_OK;
 }
 
-/*
- * TIMER0_Start
- * 1. Write CS02:0 from Copy_u8Prescaler.
- * 2. Leave WGM and COM bits as they are.
- */
+
 STD_ReturnType TIMER0_Start(uint8 Copy_u8Prescaler)
 {
-    if (Copy_u8Prescaler > TIMER_EXT_RISING)
+    if (Copy_u8Prescaler > TIMER0_PRESC_1024)
     {
         return E_NOK;
     }
 
-    /* Clear CS02:CS00 */
-    TIMER0_REG_TCCR0 &= ~((1u << CS02) |
-                          (1u << CS01) |
-                          (1u << CS00));
+    TIMER0_ClearClockSelect();
 
-    /* Set new clock source */
-    TIMER0_REG_TCCR0 |= Copy_u8Prescaler;
+    TIMER0_TCCR0_REG |= Copy_u8Prescaler;
 
     return E_OK;
 }
 
-/*
- * TIMER0_Stop
- * 1. Clear CS02:0 only. TCNT0 is unchanged.
- */
+
 STD_ReturnType TIMER0_Stop(void)
 {
-    TIMER0_REG_TCCR0 &= ~((1u << CS02) |
-                          (1u << CS01) |
-                          (1u << CS00));
+    TIMER0_ClearClockSelect();
 
     return E_OK;
 }
 
-/*
- * TIMER0_SetCompareValue
- * 1. Write Copy_u8Value to OCR0.
- */
+
 STD_ReturnType TIMER0_SetCompareValue(uint8 Copy_u8Value)
 {
-    TIMER0_REG_OCR0 = Copy_u8Value;
+    TIMER0_OCR0_REG = Copy_u8Value;
 
     return E_OK;
 }
 
-/*
- * TIMER0_SetCompareOutput
- * 1. Write COM01:0.
- */
-STD_ReturnType TIMER0_SetCompareOutput(uint8 Copy_u8ComMode)
-{
-    if (Copy_u8ComMode > TIMER0_OC_INVERT)
-    {
-        return E_NOK;
-    }
-
-    /* Clear COM01:COM00 */
-    TIMER0_REG_TCCR0 &= ~((1u << COM01) |
-                          (1u << COM00));
-
-    /* COM00 is bit 4, so mode 0..3 maps directly to bits 4..5 */
-    TIMER0_REG_TCCR0 |= (Copy_u8ComMode << COM00);
-
-    return E_OK;
-}
-
-/*
- * TIMER0_SetOverflowInterrupt / TIMER0_SetCompareInterrupt
- * 1. Set or clear TOIE0 / OCIE0 in TIMSK.
- * 2. Vectors: TIMER0_OVF_vect , TIMER0_COMP_vect.
- *    Global I-bit is INTERRUPT's job.
- */
-STD_ReturnType TIMER0_SetOverflowInterrupt(uint8 Copy_u8State)
-{
-    if (Copy_u8State > 1u)
-    {
-        return E_NOK;
-    }
-
-    if (Copy_u8State == 1u)
-    {
-        TIMSK_REG |= (1u << TOIE0);
-    }
-    else
-    {
-        TIMSK_REG &= ~(1u << TOIE0);
-    }
-
-    return E_OK;
-}
 
 STD_ReturnType TIMER0_SetCompareInterrupt(uint8 Copy_u8State)
 {
-    if (Copy_u8State > 1u)
+    if (Copy_u8State > TIMER_INTERRUPT_ENABLE)
     {
         return E_NOK;
     }
 
-    if (Copy_u8State == 1u)
+    if (Copy_u8State == TIMER_INTERRUPT_ENABLE)
     {
-        TIMSK_REG |= (1u << OCIE0);
+        SET_BIT(TIMER_TIMSK_REG, TIMER0_OCIE0_BIT);
     }
     else
     {
-        TIMSK_REG &= ~(1u << OCIE0);
+        CLEAR_BIT(TIMER_TIMSK_REG, TIMER0_OCIE0_BIT);
     }
-
-    return E_OK;
-}
-
-/* =========================================================
- *                         TIMER1
- * ========================================================= */
-
-/*
- * TIMER1_Init / TIMER1_Start / TIMER1_Stop
- * 1. WGM13:0 live in TCCR1A (WGM11:10) and TCCR1B (WGM13:12).
- * 2. CTC on OCR1A is mode 4: WGM13:0 = 0100.
- * 3. CS12:0 are in TCCR1B.
- */
-STD_ReturnType TIMER1_Init(uint8 Copy_u8Mode)
-{
-    if (Copy_u8Mode != TIMER1_NORMAL &&
-        Copy_u8Mode != TIMER1_CTC_OCR1A &&
-        Copy_u8Mode != TIMER1_FAST_PWM_8BIT &&
-        Copy_u8Mode != TIMER1_FAST_PWM_ICR1)
-    {
-        return E_NOK;
-    }
-
-    /* Clear WGM11:WGM10 */
-    TIMER1_REG_TCCR1A &= ~((1u << WGM11) |
-                           (1u << WGM10));
-
-    /* Clear WGM13:WGM12 */
-    TIMER1_REG_TCCR1B &= ~((1u << WGM13) |
-                           (1u << WGM12));
-
-    switch (Copy_u8Mode)
-    {
-    case TIMER1_NORMAL:
-        /* WGM13:0 = 0000 */
-        break;
-
-    case TIMER1_CTC_OCR1A:
-        /* WGM13:0 = 0100 */
-        TIMER1_REG_TCCR1B |= (1u << WGM12);
-        break;
-
-    case TIMER1_FAST_PWM_8BIT:
-        /* WGM13:0 = 0101 */
-        TIMER1_REG_TCCR1A |= (1u << WGM10);
-        TIMER1_REG_TCCR1B |= (1u << WGM12);
-        break;
-
-    case TIMER1_FAST_PWM_ICR1:
-        /* WGM13:0 = 1110 */
-        TIMER1_REG_TCCR1A |= (1u << WGM11);
-        TIMER1_REG_TCCR1B |= (1u << WGM13) |
-                             (1u << WGM12);
-        break;
-
-    default:
-        return E_NOK;
-    }
-
-    return E_OK;
-}
-
-/*
- * TIMER1_Start
- */
-STD_ReturnType TIMER1_Start(uint8 Copy_u8Prescaler)
-{
-    if (Copy_u8Prescaler > TIMER_EXT_RISING)
-    {
-        return E_NOK;
-    }
-
-    /* Clear CS12:CS10 */
-    TIMER1_REG_TCCR1B &= ~((1u << CS12) |
-                           (1u << CS11) |
-                           (1u << CS10));
-
-    /* Set new clock source */
-    TIMER1_REG_TCCR1B |= Copy_u8Prescaler;
-
-    return E_OK;
-}
-
-/*
- * TIMER1_Stop
- */
-STD_ReturnType TIMER1_Stop(void)
-{
-    TIMER1_REG_TCCR1B &= ~((1u << CS12) |
-                           (1u << CS11) |
-                           (1u << CS10));
-
-    return E_OK;
-}
-
-/*
- * TIMER1_SetCompareA / TIMER1_SetICR1
- * 1. 16-bit write: high byte first, then low byte
- *    (or assign the 16-bit register).
- */
-STD_ReturnType TIMER1_SetCompareA(uint16 Copy_u16Value)
-{
-    TIMER1_REG_OCR1A = Copy_u16Value;
-
-    return E_OK;
-}
-
-STD_ReturnType TIMER1_SetICR1(uint16 Copy_u16Value)
-{
-    TIMER1_REG_ICR1 = Copy_u16Value;
 
     return E_OK;
 }
@@ -301,153 +127,125 @@ STD_ReturnType TIMER1_SetICR1(uint16 Copy_u16Value)
  *                         TIMER2
  * ========================================================= */
 
-/*
- * Timer2 Fast PWM
- *
- * WGM21 = 1
- * WGM20 = 1
- *
- * OC2 = PD7
- */
-
 STD_ReturnType TIMER2_PWM(uint8 Copy_u8DutyPercent)
 {
     uint8 Local_u8OCRValue;
 
-    if (Copy_u8DutyPercent > 100u)
+    if (Copy_u8DutyPercent > 100U)
     {
         return E_NOK;
     }
 
-    /*
-     * Fast PWM, non-inverting mode
-     *
-     * WGM21 = 1
-     * WGM20 = 1
-     * COM21 = 1
-     * COM20 = 0
-     */
-    TIMER2_REG_TCCR2 &= ~((1u << WGM21) |
-                          (1u << WGM20) |
-                          (1u << COM21) |
-                          (1u << COM20));
+    TIMER2_TCCR2_REG &= (uint8)~(
+        (1U << TIMER2_WGM21_BIT) |
+        (1U << TIMER2_WGM20_BIT) |
+        (1U << TIMER2_COM21_BIT) |
+        (1U << TIMER2_COM20_BIT)
+    );
 
-    TIMER2_REG_TCCR2 |= (1u << WGM21) |
-                        (1u << WGM20) |
-                        (1u << COM21);
+    TIMER2_TCCR2_REG |=
+        (1U << TIMER2_WGM21_BIT) |
+        (1U << TIMER2_WGM20_BIT) |
+        (1U << TIMER2_COM21_BIT);
 
-    /*
-     * OCR2 = duty * 255 / 100
-     */
     Local_u8OCRValue =
-        (uint8)(((uint16)Copy_u8DutyPercent * 255u) / 100u);
+        (uint8)(((uint16)Copy_u8DutyPercent * 255U) / 100U);
 
-    TIMER2_REG_OCR2 = Local_u8OCRValue;
+    TIMER2_OCR2_REG = Local_u8OCRValue;
 
-    /*
-     * Prescaler = 64
-     *
-     * F_PWM = 8MHz / (64 * 256)
-     *       ≈ 488 Hz
-     */
-    TIMER2_REG_TCCR2 &= ~((1u << CS22) |
-                          (1u << CS21) |
-                          (1u << CS20));
+    TIMER2_ClearClockSelect();
 
-    TIMER2_REG_TCCR2 |= (1u << CS22) |
-                        (1u << CS21);
+    TIMER2_TCCR2_REG |=
+        (1U << TIMER2_CS22_BIT) |
+        (1U << TIMER2_CS21_BIT);
 
     return E_OK;
 }
 
+
 STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz)
 {
-    if (Copy_u16FrequencyHz == 0u)
+    if (Copy_u16FrequencyHz == 0U)
     {
-        return E_NOK;
+        return TIMER2_Stop();
     }
 
-    /*
-     * Timer2 Fast PWM
-     * Output: OC2 (PD7)
-     * Duty cycle: 50%
-     *
-     * F_CPU = 8 MHz
-     *
-     * Available PWM frequencies with TOP = 255:
-     *
-     * N = 1    -> 31250 Hz
-     * N = 8    -> 3906 Hz
-     * N = 32   -> 976 Hz
-     * N = 64   -> 488 Hz
-     * N = 128  -> 244 Hz
-     * N = 256  -> 122 Hz
-     * N = 1024 -> 30.5 Hz
-     *
-     * The closest useful Timer2 frequency range is selected.
-     */
+    TIMER2_TCCR2_REG &= (uint8)~(
+        (1U << TIMER2_WGM21_BIT) |
+        (1U << TIMER2_WGM20_BIT) |
+        (1U << TIMER2_COM21_BIT) |
+        (1U << TIMER2_COM20_BIT)
+    );
 
-    /* Fast PWM + non-inverting output on OC2 */
-    TIMER2_REG_TCCR2 &= ~((1u << WGM21) |
-                          (1u << WGM20) |
-                          (1u << COM21) |
-                          (1u << COM20));
+    TIMER2_TCCR2_REG |=
+        (1U << TIMER2_WGM21_BIT) |
+        (1U << TIMER2_WGM20_BIT) |
+        (1U << TIMER2_COM21_BIT);
 
-    TIMER2_REG_TCCR2 |= (1u << WGM21) |
-                        (1u << WGM20) |
-                        (1u << COM21);
+    TIMER2_OCR2_REG = 127U;
 
-    /* 50% duty cycle */
-    TIMER2_REG_OCR2 = 127u;
-
-    /* Stop Timer2 before changing the prescaler */
-    TIMER2_REG_TCCR2 &= ~((1u << CS22) |
-                          (1u << CS21) |
-                          (1u << CS20));
+    TIMER2_ClearClockSelect();
 
     /*
+     * Timer2 is used as the buzzer tone generator.
      * Select the closest available frequency.
      */
-    if (Copy_u16FrequencyHz >= 15000u)
+
+    if (Copy_u16FrequencyHz >= 15000U)
     {
-        /* N = 1 -> 31250 Hz */
-        TIMER2_REG_TCCR2 |= (1u << CS20);
+        TIMER2_TCCR2_REG |=
+            (1U << TIMER2_CS20_BIT);
     }
-    else if (Copy_u16FrequencyHz >= 2000u)
+    else if (Copy_u16FrequencyHz >= 2000U)
     {
-        /* N = 8 -> 3906 Hz */
-        TIMER2_REG_TCCR2 |= (1u << CS21);
+        TIMER2_TCCR2_REG |=
+            (1U << TIMER2_CS21_BIT);
     }
-    else if (Copy_u16FrequencyHz >= 700u)
+    else if (Copy_u16FrequencyHz >= 700U)
     {
-        /* N = 32 -> 976 Hz */
-        TIMER2_REG_TCCR2 |= (1u << CS21) |
-                            (1u << CS20);
+        TIMER2_TCCR2_REG |=
+            (1U << TIMER2_CS21_BIT) |
+            (1U << TIMER2_CS20_BIT);
     }
-    else if (Copy_u16FrequencyHz >= 350u)
+    else if (Copy_u16FrequencyHz >= 350U)
     {
-        /* N = 64 -> 488 Hz */
-        TIMER2_REG_TCCR2 |= (1u << CS22);
+        TIMER2_TCCR2_REG |=
+            (1U << TIMER2_CS22_BIT);
     }
-    else if (Copy_u16FrequencyHz >= 170u)
+    else if (Copy_u16FrequencyHz >= 170U)
     {
-        /* N = 128 -> 244 Hz */
-        TIMER2_REG_TCCR2 |= (1u << CS22) |
-                            (1u << CS20);
+        TIMER2_TCCR2_REG |=
+            (1U << TIMER2_CS22_BIT) |
+            (1U << TIMER2_CS20_BIT);
     }
-    else if (Copy_u16FrequencyHz >= 70u)
+    else if (Copy_u16FrequencyHz >= 70U)
     {
-        /* N = 256 -> 122 Hz */
-        TIMER2_REG_TCCR2 |= (1u << CS22) |
-                            (1u << CS21);
+        TIMER2_TCCR2_REG |=
+            (1U << TIMER2_CS22_BIT) |
+            (1U << TIMER2_CS21_BIT);
     }
     else
     {
-        /* N = 1024 -> 30.5 Hz */
-        TIMER2_REG_TCCR2 |= (1u << CS22) |
-                            (1u << CS21) |
-                            (1u << CS20);
+        TIMER2_TCCR2_REG |=
+            (1U << TIMER2_CS22_BIT) |
+            (1U << TIMER2_CS21_BIT) |
+            (1U << TIMER2_CS20_BIT);
     }
+
+    return E_OK;
+}
+
+
+STD_ReturnType TIMER2_Stop(void)
+{
+    TIMER2_ClearClockSelect();
+
+    TIMER2_TCCR2_REG &= (uint8)~(
+        (1U << TIMER2_COM21_BIT) |
+        (1U << TIMER2_COM20_BIT)
+    );
+
+    TIMER2_OCR2_REG = 0U;
 
     return E_OK;
 }
