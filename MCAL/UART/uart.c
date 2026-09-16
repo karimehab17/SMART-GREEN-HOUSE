@@ -1,6 +1,6 @@
 #include "../../LIB/STD_TYPES.h"
 #include "../../LIB/Math.h"
-#include "../../LIB/config.h"
+#include "config.h"
 
 #include "UART_interface.h"
 #include "UART_private.h"
