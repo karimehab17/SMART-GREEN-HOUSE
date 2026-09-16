@@ -1,172 +1,261 @@
-/*
- * Author: Ahmed Ellamie
- * Email:  ahmed.ellamiee@gmail.com
- *
- * STUDENT TASK — ADC.c  (ATmega32, 10-bit)
- * Implement every prototype from ADC_interface.h.
- */
+#include "../../LIB/STD_TYPES.h"
+#include "../../LIB/Math.h"
 
-#include "STD_TYPES.h"
-#include "Math.h"
 #include "ADC_interface.h"
 #include "ADC_private.h"
-#include "stddef.h"
 
-STD_ReturnType ADC_Init(uint8 Copy_u8Ref, uint8 Copy_u8Prescaler)
+#include <stddef.h>
+
+
+/* =========================================================
+ *                     Private Helpers
+ * ========================================================= */
+
+static STD_ReturnType ADC_IsValidChannel(uint8 Copy_u8Channel)
 {
-    if ((Copy_u8Ref > ADC_REF_INTERNAL_2V56) ||
-    (Copy_u8Prescaler > ADC_PRESC_128))
-{
+    if (Copy_u8Channel < ADC_NUMBER_OF_CHANNELS)
+    {
+        return E_OK;
+    }
+
     return E_NOK;
 }
-    STD_ReturnType local_Status = E_OK;
 
-    /* Reference voltage (REFS1:REFS0) */
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_REFS0_BIT);
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_REFS1_BIT);
-    if (GET_BIT(Copy_u8Ref, 0))
-    {
-        SET_BIT(ADC_ADMUX_REG, ADC_REFS0_BIT);
-    }
-    if (GET_BIT(Copy_u8Ref, 1))
-    {
-        SET_BIT(ADC_ADMUX_REG, ADC_REFS1_BIT);
-    }
 
-    /* Right-adjusted result */
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_ADLAR_BIT);
-
-    /* Default channel 0 */
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX0_BIT);
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX1_BIT);
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX2_BIT);
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX3_BIT);
-    CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX4_BIT);
-
-    /* Clock prescaler (ADPS2:ADPS0) */
-    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADPS0_BIT);
-    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADPS1_BIT);
-    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADPS2_BIT);
-    if (GET_BIT(Copy_u8Prescaler, 0))
-    {
-        SET_BIT(ADC_ADCSRA_REG, ADC_ADPS0_BIT);
-    }
-    if (GET_BIT(Copy_u8Prescaler, 1))
-    {
-        SET_BIT(ADC_ADCSRA_REG, ADC_ADPS1_BIT);
-    }
-    if (GET_BIT(Copy_u8Prescaler, 2))
-    {
-        SET_BIT(ADC_ADCSRA_REG, ADC_ADPS2_BIT);
-    }
-
-    /* Enable the ADC module */
-    SET_BIT(ADC_ADCSRA_REG, ADC_ADEN_BIT);
-
-    return local_Status;
+static uint8 ADC_IsBusy(void)
+{
+    return GET_BIT(ADC_ADCSRA_REG, ADC_ADSC_BIT);
 }
 
-/*
- * Disables the ADC peripheral (powers it down / stops conversions).
- */
-STD_ReturnType ADC_DeInit(void)
+
+static void ADC_SelectChannel(uint8 Copy_u8Channel)
 {
+    ADC_ADMUX_REG &= 0xE0U;
+    ADC_ADMUX_REG |= (Copy_u8Channel & 0x1FU);
+}
+
+
+static void ADC_SetPrescaler(uint8 Copy_u8Prescaler)
+{
+    ADC_ADCSRA_REG &= 0xF8U;
+    ADC_ADCSRA_REG |= (Copy_u8Prescaler & 0x07U);
+}
+
+
+static void ADC_SetReference(uint8 Copy_u8Ref)
+{
+    ADC_ADMUX_REG &= 0x3FU;
+    ADC_ADMUX_REG |= (uint8)((Copy_u8Ref & 0x03U) << 6U);
+}
+
+
+/* =========================================================
+ *                         Initialization
+ * ========================================================= */
+
+STD_ReturnType ADC_Init(
+    uint8 Copy_u8Ref,
+    uint8 Copy_u8Prescaler)
+{
+    if (Copy_u8Ref > ADC_REF_INTERNAL_2V56)
+    {
+        return E_NOK;
+    }
+
+    if (Copy_u8Prescaler < ADC_PRESC_2 ||
+        Copy_u8Prescaler > ADC_PRESC_128)
+    {
+        return E_NOK;
+    }
+
     CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADEN_BIT);
+
+    ADC_SetReference(Copy_u8Ref);
+
+    CLEAR_BIT(ADC_ADMUX_REG, ADC_ADLAR_BIT);
+
+    ADC_SelectChannel(ADC_CHANNEL_0);
+
+    ADC_SetPrescaler(Copy_u8Prescaler);
+
+    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADATE_BIT);
+
+    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADIE_BIT);
+
+    SET_BIT(ADC_ADCSRA_REG, ADC_ADEN_BIT);
 
     return E_OK;
 }
 
-/*
- * Selects the given channel and starts a single conversion (non-blocking).
- */
-STD_ReturnType ADC_StartConversion(uint8 uint8Channel)
+
+/* =========================================================
+ *                    Start Conversion
+ * ========================================================= */
+
+STD_ReturnType ADC_StartConversion(uint8 Copy_u8Channel)
 {
-    STD_ReturnType local_Status = E_OK;
-
-    if (uint8Channel >= ADC_NUMBER_OF_CHANNELS)
+    if (ADC_IsValidChannel(Copy_u8Channel) != E_OK)
     {
-        local_Status = E_NOK;
-    }
-    else
-    {
-        CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX0_BIT);
-        CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX1_BIT);
-        CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX2_BIT);
-        CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX3_BIT);
-        CLEAR_BIT(ADC_ADMUX_REG, ADC_MUX4_BIT);
-        if (GET_BIT(uint8Channel, 0))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_MUX0_BIT);
-        }
-        if (GET_BIT(uint8Channel, 1))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_MUX1_BIT);
-        }
-        if (GET_BIT(uint8Channel, 2))
-        {
-            SET_BIT(ADC_ADMUX_REG, ADC_MUX2_BIT);
-        }
-
-        SET_BIT(ADC_ADCSRA_REG, ADC_ADSC_BIT);
+        return E_NOK;
     }
 
-    return local_Status;
+    /*
+     * ADMUX may only be changed while no conversion
+     * is currently running.
+     */
+    if (ADC_IsBusy() != 0U)
+    {
+        return E_NOK;
+    }
+
+    ADC_SelectChannel(Copy_u8Channel);
+
+    SET_BIT(ADC_ADCSRA_REG, ADC_ADSC_BIT);
+
+    return E_OK;
 }
 
-/*
- * Reports whether the ADC has finished the conversion that was last started.
- */
+
+/* =========================================================
+ *                 Conversion Status
+ * ========================================================= */
+
 uint8 ADC_IsConversionComplete(void)
 {
-    uint8 uint8Status = ADC_CONVERSION_DONE;
-
-    if (GET_BIT(ADC_ADCSRA_REG, ADC_ADSC_BIT))
+    if (ADC_IsBusy() != 0U)
     {
-        uint8Status = ADC_CONVERSION_BUSY;
+        return ADC_CONVERSION_BUSY;
     }
 
-    return uint8Status;
+    return ADC_CONVERSION_DONE;
 }
 
-/*
- * Reads the 10-bit result of the last completed conversion.
- */
-STD_ReturnType ADC_ReadResult(uint16 *puint16Result)
-{
-    STD_ReturnType local_Status = E_OK;
 
-    if (puint16Result == NULL)
+/* =========================================================
+ *                      Read Result
+ * ========================================================= */
+
+STD_ReturnType ADC_ReadResult(uint16* Copy_pu16Reading)
+{
+    uint8 Local_u8Low;
+    uint8 Local_u8High;
+
+    if (Copy_pu16Reading == NULL)
     {
-        local_Status = E_NOK;
+        return E_NOK;
+    }
+
+    if (ADC_IsBusy() != 0U)
+    {
+        return E_NOK;
+    }
+
+    /*
+     * ADCL must be read before ADCH.
+     */
+    Local_u8Low = ADC_ADCL_REG;
+    Local_u8High = ADC_ADCH_REG;
+
+    *Copy_pu16Reading =
+        (uint16)(((uint16)Local_u8High << 8U) | Local_u8Low);
+
+    *Copy_pu16Reading &= 0x03FFU;
+
+    return E_OK;
+}
+
+
+/* =========================================================
+ *                  Read Channel
+ * ========================================================= */
+
+STD_ReturnType ADC_ReadChannel(
+    uint8 Copy_u8Channel,
+    uint16* Copy_pu16Reading)
+{
+    return ADC_ReadChannelBlocking(
+        Copy_u8Channel,
+        Copy_pu16Reading
+    );
+}
+
+
+/* =========================================================
+ *                Blocking Channel Read
+ * ========================================================= */
+
+STD_ReturnType ADC_ReadChannelBlocking(
+    uint8 Copy_u8Channel,
+    uint16* Copy_pu16Reading)
+{
+    STD_ReturnType Local_u8Status;
+
+    if (Copy_pu16Reading == NULL)
+    {
+        return E_NOK;
+    }
+
+    Local_u8Status = ADC_StartConversion(Copy_u8Channel);
+
+    if (Local_u8Status != E_OK)
+    {
+        return Local_u8Status;
+    }
+
+    while (ADC_IsConversionComplete() == ADC_CONVERSION_BUSY)
+    {
+        /* Wait for conversion completion */
+    }
+
+    return ADC_ReadResult(Copy_pu16Reading);
+}
+
+
+/* =========================================================
+ *                     Get Result
+ * ========================================================= */
+
+STD_ReturnType ADC_GetResult(uint16* Copy_pu16Reading)
+{
+    return ADC_ReadResult(Copy_pu16Reading);
+}
+
+
+/* =========================================================
+ *                  ADC Interrupt Control
+ * ========================================================= */
+
+STD_ReturnType ADC_SetInterrupt(uint8 Copy_u8State)
+{
+    if (Copy_u8State > ADC_INTERRUPT_ENABLE)
+    {
+        return E_NOK;
+    }
+
+    if (Copy_u8State == ADC_INTERRUPT_ENABLE)
+    {
+        SET_BIT(ADC_ADCSRA_REG, ADC_ADIE_BIT);
     }
     else
     {
-        uint8 uint8Low = ADC_ADCL_REG;
-        uint8 uint8High = ADC_ADCH_REG;
-
-        *puint16Result = (uint16)(((uint16)uint8High << 8) | uint8Low);
+        CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADIE_BIT);
     }
 
-    return local_Status;
+    return E_OK;
 }
 
-/*
- * Blocking read: starts a conversion on the given channel, busy-waits until it
- * finishes, then returns the result.
- */
-STD_ReturnType ADC_ReadChannelBlocking(uint8 uint8Channel, uint16 *puint16Result)
+
+/* =========================================================
+ *                        De-Init
+ * ========================================================= */
+
+STD_ReturnType ADC_DeInit(void)
 {
-    STD_ReturnType local_Status = ADC_StartConversion(uint8Channel);
+    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADEN_BIT);
 
-    if (local_Status == E_OK)
-    {
-        while (ADC_IsConversionComplete() == ADC_CONVERSION_BUSY)
-        {
-            /* wait */
-        }
+    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADIE_BIT);
 
-        local_Status = ADC_ReadResult(puint16Result);
-    }
+    CLEAR_BIT(ADC_ADCSRA_REG, ADC_ADATE_BIT);
 
-    return local_Status;
+    return E_OK;
 }
