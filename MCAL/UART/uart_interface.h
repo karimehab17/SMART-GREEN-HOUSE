@@ -1,50 +1,66 @@
 #ifndef UART_INTERFACE_H
 #define UART_INTERFACE_H
 
-/*
- * Author: Ahmed Ellamie
- * Email:  ahmed.ellamiee@gmail.com
- *
- * MCAL UART — public API for the ATmega32 USART (8N1, polling).
- * Include this header from HAL, Logic, and main. Do not include UART_private.h there.
- *
- * Pins: RXD = PD0, TXD = PD1.
- */
+#include "../../LIB/STD_TYPES.h"
 
-#include "STD_TYPES.h"
+/* ==================== UART Interrupt State ==================== */
 
-/*
- * Description : Set 8 data bits, no parity, 1 stop bit (8N1), then enable TX and RX
- *               at Copy_u32BaudRate. UBRR = F_CPU / (16 * baud) - 1  (normal async).
- */
+#define UART_INTERRUPT_DISABLE    0U
+#define UART_INTERRUPT_ENABLE     1U
+
+/* ==================== Initialization ==================== */
+
 STD_ReturnType UART_Init(uint32 Copy_u32BaudRate);
 
+/* ==================== Transmission ==================== */
+
 /*
- * Description : Block until UDRE is set, then write one byte to UDR.
+ * Blocking byte transmission.
+ * Used only for short console responses.
  */
 STD_ReturnType UART_SendByte(uint8 Copy_u8Data);
 
-/*
- * Description : Block until RXC is set, then read UDR into *Copy_pu8Data.
- */
-STD_ReturnType UART_ReceiveByte(uint8 *Copy_pu8Data);
+STD_ReturnType UART_SendString(
+    const uint8 *Copy_pu8String
+);
+
+/* ==================== Reception ==================== */
 
 /*
- * Description : Send a NULL-terminated string with UART_SendByte.
+ * Blocking reception.
+ * Kept as a generic MCAL API.
  */
-STD_ReturnType UART_SendString(const uint8 *Copy_pu8String);
+STD_ReturnType UART_ReceiveByte(
+    uint8 *Copy_pu8Data
+);
 
 /*
- * Description : Return E_OK if a byte is waiting (RXC = 1), else E_NOK.
- *               Does not read UDR.
+ * Non-blocking reception from the RX ring buffer.
+ */
+STD_ReturnType UART_ReceiveByteNonBlocking(
+    uint8 *Copy_pu8Data
+);
+
+/*
+ * Returns E_OK when RX ring buffer contains data.
  */
 STD_ReturnType UART_IsDataReady(void);
 
+/* ==================== Interrupt Control ==================== */
+
+STD_ReturnType UART_SetRxInterrupt(
+    uint8 Copy_u8State
+);
+
+STD_ReturnType UART_SetTxInterrupt(
+    uint8 Copy_u8State
+);
+
+/* ==================== RX Status ==================== */
+
 /*
- * Description : Enable or disable RX complete / UDRE interrupts (RXCIE, UDRIE).
- *               1 = enable, 0 = disable. Call INTERRUPT_EnableGlobal after enabling.
+ * Returns and clears the RX overflow flag.
  */
-STD_ReturnType UART_SetRxInterrupt(uint8 Copy_u8State);
-STD_ReturnType UART_SetTxInterrupt(uint8 Copy_u8State);
+uint8 UART_GetRxOverflow(void);
 
 #endif /* UART_INTERFACE_H */
