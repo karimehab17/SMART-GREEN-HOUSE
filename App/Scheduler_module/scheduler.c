@@ -1,9 +1,10 @@
 #include "scheduler.h"
+
 #include <stddef.h>
 
-/* =========================================================
- * Scheduler runtime data
- * ========================================================= */
+
+/* ==================== Runtime Data ==================== */
+
 static SCH_TaskType g_tasks[SCH_TASK_COUNT];
 
 static volatile uint8 g_tickPending = 0U;
@@ -11,28 +12,28 @@ static volatile uint8 g_tickPending = 0U;
 static uint16 g_overrunCount = 0U;
 
 
-/* =========================================================
- * Convert milliseconds to scheduler ticks
- * ========================================================= */
-static uint16 SCH_MsToTicks(uint16 periodMs)
+/* ==================== Private Functions ==================== */
+
+static uint16 SCH_MsToTicks(uint16 Copy_u16TimeMs)
 {
-    return (uint16)(periodMs / SCH_TICK_MS);
+    return (uint16)(Copy_u16TimeMs / SCH_TICK_MS);
 }
 
 
-/* =========================================================
- * Initialize scheduler
- * ========================================================= */
+/* ==================== Initialization ==================== */
+
 STD_ReturnType SCH_Init(void)
 {
-    uint8 i;
+    uint8 Local_u8Index;
 
-    for (i = 0U; i < SCH_TASK_COUNT; i++)
+    for (Local_u8Index = 0U;
+         Local_u8Index < SCH_TASK_COUNT;
+         Local_u8Index++)
     {
-        g_tasks[i].callback = NULL;
-        g_tasks[i].periodTicks = 0U;
-        g_tasks[i].elapsedTicks = 0U;
-        g_tasks[i].enabled = 0U;
+        g_tasks[Local_u8Index].callback = NULL;
+        g_tasks[Local_u8Index].periodTicks = 0U;
+        g_tasks[Local_u8Index].elapsedTicks = 0U;
+        g_tasks[Local_u8Index].enabled = 0U;
     }
 
     g_tickPending = 0U;
@@ -42,80 +43,81 @@ STD_ReturnType SCH_Init(void)
 }
 
 
-/* =========================================================
- * Create / configure scheduler task
- * ========================================================= */
-STD_ReturnType SCH_CreateTask(uint8 taskId,
-                              SCH_TaskCallbackType callback,
-                              uint16 periodMs)
+/* ==================== Create Task ==================== */
+
+STD_ReturnType SCH_CreateTask(
+    uint8 Copy_u8TaskId,
+    SCH_TaskCallbackType Copy_pfCallback,
+    uint16 Copy_u16PeriodMs)
 {
-    uint16 periodTicks;
+    uint16 Local_u16PeriodTicks;
 
-    if ((taskId >= SCH_TASK_COUNT) ||
-        (callback == NULL) ||
-        (periodMs < SCH_TICK_MS))
+    if ((Copy_u8TaskId >= SCH_TASK_COUNT) ||
+        (Copy_pfCallback == NULL))
     {
         return E_NOK;
     }
 
-    if ((periodMs % SCH_TICK_MS) != 0U)
+    if ((Copy_u16PeriodMs < SCH_TICK_MS) ||
+        ((Copy_u16PeriodMs % SCH_TICK_MS) != 0U))
     {
         return E_NOK;
     }
 
-    periodTicks = SCH_MsToTicks(periodMs);
+    Local_u16PeriodTicks =
+        SCH_MsToTicks(Copy_u16PeriodMs);
 
-    if (periodTicks == 0U)
+    if (Local_u16PeriodTicks == 0U)
     {
         return E_NOK;
     }
 
-    g_tasks[taskId].callback = callback;
-    g_tasks[taskId].periodTicks = periodTicks;
-    g_tasks[taskId].elapsedTicks = 0U;
-    g_tasks[taskId].enabled = 1U;
+    g_tasks[Copy_u8TaskId].callback =
+        Copy_pfCallback;
+
+    g_tasks[Copy_u8TaskId].periodTicks =
+        Local_u16PeriodTicks;
+
+    g_tasks[Copy_u8TaskId].elapsedTicks = 0U;
+
+    g_tasks[Copy_u8TaskId].enabled = 1U;
 
     return E_OK;
 }
 
 
-/* =========================================================
- * Enable task
- * ========================================================= */
-STD_ReturnType SCH_EnableTask(uint8 taskId)
+/* ==================== Enable Task ==================== */
+
+STD_ReturnType SCH_EnableTask(uint8 Copy_u8TaskId)
 {
-    if (taskId >= SCH_TASK_COUNT)
+    if (Copy_u8TaskId >= SCH_TASK_COUNT)
     {
         return E_NOK;
     }
 
-    g_tasks[taskId].enabled = 1U;
+    g_tasks[Copy_u8TaskId].enabled = 1U;
 
     return E_OK;
 }
 
 
-/* =========================================================
- * Disable task
- * ========================================================= */
-STD_ReturnType SCH_DisableTask(uint8 taskId)
+/* ==================== Disable Task ==================== */
+
+STD_ReturnType SCH_DisableTask(uint8 Copy_u8TaskId)
 {
-    if (taskId >= SCH_TASK_COUNT)
+    if (Copy_u8TaskId >= SCH_TASK_COUNT)
     {
         return E_NOK;
     }
 
-    g_tasks[taskId].enabled = 0U;
+    g_tasks[Copy_u8TaskId].enabled = 0U;
 
     return E_OK;
 }
 
 
-/* =========================================================
- * 10 ms scheduler tick
- *
- * Called from Timer0 ISR.
- * ========================================================= */
+/* ==================== 10 ms System Tick ==================== */
+
 void SCH_Tick(void)
 {
     if (g_tickPending != 0U)
@@ -130,14 +132,11 @@ void SCH_Tick(void)
 }
 
 
-/* =========================================================
- * Execute one pending scheduler tick
- *
- * Cooperative / non-preemptive execution.
- * ========================================================= */
+/* ==================== Cooperative Dispatcher ==================== */
+
 void SCH_Run(void)
 {
-    uint8 i;
+    uint8 Local_u8Index;
 
     if (g_tickPending == 0U)
     {
@@ -146,31 +145,33 @@ void SCH_Run(void)
 
     g_tickPending = 0U;
 
-    for (i = 0U; i < SCH_TASK_COUNT; i++)
+    for (Local_u8Index = 0U;
+         Local_u8Index < SCH_TASK_COUNT;
+         Local_u8Index++)
     {
-        if (g_tasks[i].enabled == 0U)
+        if (g_tasks[Local_u8Index].enabled == 0U)
         {
             continue;
         }
 
-        g_tasks[i].elapsedTicks++;
+        g_tasks[Local_u8Index].elapsedTicks++;
 
-        if (g_tasks[i].elapsedTicks >= g_tasks[i].periodTicks)
+        if (g_tasks[Local_u8Index].elapsedTicks >=
+            g_tasks[Local_u8Index].periodTicks)
         {
-            g_tasks[i].elapsedTicks = 0U;
+            g_tasks[Local_u8Index].elapsedTicks = 0U;
 
-            if (g_tasks[i].callback != NULL)
+            if (g_tasks[Local_u8Index].callback != NULL)
             {
-                g_tasks[i].callback();
+                g_tasks[Local_u8Index].callback();
             }
         }
     }
 }
 
 
-/* =========================================================
- * Get scheduler overrun count
- * ========================================================= */
+/* ==================== Overrun Counter ==================== */
+
 uint16 SCH_GetOverrunCount(void)
 {
     return g_overrunCount;

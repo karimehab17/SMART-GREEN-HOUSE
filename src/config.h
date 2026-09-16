@@ -9,6 +9,7 @@
 
 #define F_CPU                       8000000UL
 
+
 /* =========================================================
  * GPIO Configuration
  * ========================================================= */
@@ -70,10 +71,9 @@
 
 #define ADC_MAX_VALUE               1023U
 
-/* ---------------- Sensor Filtering ---------------- */
-
 #define SENSOR_FILTER_SAMPLES       3U
 #define SENSOR_CHANNEL_COUNT        3U
+
 
 /* =========================================================
  * Sensor Scaling
@@ -83,7 +83,32 @@
 #define TEMP_MAX_C                  50U
 
 #define PERCENT_MIN                 0U
-#define PERCENT_MAX                100U
+#define PERCENT_MAX                 100U
+
+
+/* =========================================================
+ * Scheduler Configuration
+ * ========================================================= */
+
+#define SCH_TICK_MS                 10U
+
+#define SCH_TASK_COUNT              7U
+
+#define SCH_TASK_BUTTONS            0U
+#define SCH_TASK_FSM                1U
+#define SCH_TASK_SENSORS            2U
+#define SCH_TASK_CONTROL            3U
+#define SCH_TASK_LCD                4U
+#define SCH_TASK_REPORT             5U
+#define SCH_TASK_CONSOLE            6U
+
+#define SCH_BUTTONS_PERIOD_MS       10U
+#define SCH_FSM_PERIOD_MS           10U
+#define SCH_SENSORS_PERIOD_MS       100U
+#define SCH_CONTROL_PERIOD_MS       200U
+#define SCH_LCD_PERIOD_MS           500U
+#define SCH_REPORT_PERIOD_MS        5000U
+#define SCH_CONSOLE_PERIOD_MS       20U
 
 
 /* =========================================================
@@ -112,15 +137,12 @@
  * Hysteresis Configuration
  * ========================================================= */
 
-/* Fan */
 #define FAN_ON_THRESHOLD_C          35U
 #define FAN_OFF_THRESHOLD_C         32U
 
-/* Pump */
 #define PUMP_ON_THRESHOLD_PCT       40U
 #define PUMP_OFF_THRESHOLD_PCT      60U
 
-/* Lamp */
 #define LAMP_ON_THRESHOLD_PCT       25U
 #define LAMP_OFF_THRESHOLD_PCT      40U
 
@@ -135,12 +157,22 @@
 #define ALARM_BUZZER_ON_MS          100U
 #define ALARM_BUZZER_OFF_MS         900U
 
+#define SCH_ALARM_ON_TICKS \
+    (ALARM_BUZZER_ON_MS / SCH_TICK_MS)
+
+#define SCH_ALARM_PERIOD_TICKS \
+    ((ALARM_BUZZER_ON_MS + ALARM_BUZZER_OFF_MS) / SCH_TICK_MS)
+
 
 /* =========================================================
  * Button Configuration
  * ========================================================= */
 
 #define BUTTON_DEBOUNCE_MS          20U
+#define BUTTON_DEBOUNCE_SAMPLES     2U
+
+#define BUTTON_PRESSED              0U
+#define BUTTON_RELEASED             1U
 
 #define FACTORY_RESET_HOLD_MS       3000U
 #define FACTORY_RESET_TICKS         300U
@@ -151,40 +183,6 @@
  * ========================================================= */
 
 #define PUMP_MAX_RUNTIME_SEC        60U
-
-
-/* =========================================================
- * Scheduler Configuration
- * ========================================================= */
-
-#define SCH_TICK_MS                 10U
-
-#define SCH_TASK_COUNT              7U
-
-#define SCH_TASK_BUTTONS            0U
-#define SCH_TASK_FSM                1U
-#define SCH_TASK_SENSORS            2U
-#define SCH_TASK_CONTROL            3U
-#define SCH_TASK_LCD                4U
-#define SCH_TASK_REPORT             5U
-#define SCH_TASK_CONSOLE            6U
-
-#define SCH_BUTTONS_PERIOD_MS       10U
-#define SCH_FSM_PERIOD_MS           10U
-#define SCH_SENSORS_PERIOD_MS       100U
-#define SCH_CONTROL_PERIOD_MS       200U
-#define SCH_LCD_PERIOD_MS           500U
-#define SCH_REPORT_PERIOD_MS        5000U
-#define SCH_CONSOLE_PERIOD_MS       20U
-
-/* Scheduler task offsets */
-#define SCH_BUTTONS_OFFSET_MS       0U
-#define SCH_FSM_OFFSET_MS           0U
-#define SCH_SENSORS_OFFSET_MS       1U
-#define SCH_CONTROL_OFFSET_MS       3U
-#define SCH_LCD_OFFSET_MS           5U
-#define SCH_REPORT_OFFSET_MS        7U
-#define SCH_CONSOLE_OFFSET_MS       2U
 
 
 /* =========================================================
@@ -235,8 +233,8 @@
 /* =========================================================
  * EEPROM Configuration
  *
- * Internal ATmega32A EEPROM is used for configuration
- * persistence. No SPI EEPROM is used.
+ * Internal ATmega32A EEPROM is used.
+ * No SPI EEPROM is used.
  * ========================================================= */
 
 #define EEPROM_CONFIG_ADDRESS       0x00U
@@ -263,10 +261,11 @@ typedef enum
 
 typedef enum
 {
-    ACT_FAN = 0U,
-    ACT_PUMP,
-    ACT_LAMP,
-    ACT_ALARM
+    ACTUATOR_FAN = 0U,
+    ACTUATOR_PUMP,
+    ACTUATOR_LAMP,
+    ACTUATOR_ALARM,
+    ACTUATOR_BUZZER
 
 } ActuatorId_t;
 
@@ -354,15 +353,6 @@ typedef struct
 
 #define ACTUATOR_ON                1U
 #define ACTUATOR_OFF               0U
-
-
-/* =========================================================
- * Button Logic
- * ========================================================= */
-
-#define BUTTON_PRESSED             0U
-#define BUTTON_RELEASED            1U
-#define BUTTON_DEBOUNCE_SAMPLES     2U
 
 
 /* =========================================================

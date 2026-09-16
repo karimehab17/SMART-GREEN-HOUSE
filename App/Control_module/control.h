@@ -1,7 +1,7 @@
 #ifndef CONTROL_H
 #define CONTROL_H
 
-#include "STD_TYPES.h"
+#include "../../LIB/STD_TYPES.h"
 #include "config.h"
 
 typedef enum
@@ -11,6 +11,8 @@ typedef enum
 } CONTROL_Status_t;
 
 CONTROL_Status_t CTRL_Init(Config_t *pConfig);
+
+CONTROL_Status_t CTRL_Update(void);
 
 CONTROL_Status_t CTRL_UpdateThermal(void);
 CONTROL_Status_t CTRL_UpdateIrrigation(void);

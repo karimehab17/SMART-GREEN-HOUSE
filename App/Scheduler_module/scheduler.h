@@ -1,17 +1,16 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-#include "STD_TYPES.h"
+#include "../../LIB/STD_TYPES.h"
 #include "config.h"
 
-/* =========================================================
- * Scheduler task callback
- * ========================================================= */
+/* ==================== Task Callback ==================== */
+
 typedef void (*SCH_TaskCallbackType)(void);
 
-/* =========================================================
- * Scheduler task control block
- * ========================================================= */
+
+/* ==================== Task Control Block ==================== */
+
 typedef struct
 {
     SCH_TaskCallbackType callback;
@@ -20,19 +19,21 @@ typedef struct
     uint8 enabled;
 } SCH_TaskType;
 
-/* =========================================================
- * Scheduler API
- * ========================================================= */
+
+/* ==================== Scheduler API ==================== */
 
 STD_ReturnType SCH_Init(void);
 
-STD_ReturnType SCH_CreateTask(uint8 taskId,
-                              SCH_TaskCallbackType callback,
-                              uint16 periodMs);
+STD_ReturnType SCH_CreateTask(
+    uint8 Copy_u8TaskId,
+    SCH_TaskCallbackType Copy_pfCallback,
+    uint16 Copy_u16PeriodMs);
 
-STD_ReturnType SCH_EnableTask(uint8 taskId);
+STD_ReturnType SCH_EnableTask(
+    uint8 Copy_u8TaskId);
 
-STD_ReturnType SCH_DisableTask(uint8 taskId);
+STD_ReturnType SCH_DisableTask(
+    uint8 Copy_u8TaskId);
 
 void SCH_Tick(void);
 
