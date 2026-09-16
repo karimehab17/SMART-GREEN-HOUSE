@@ -1,6 +1,7 @@
 #include "report.h"
 
 #include "../../MCAL/UART/UART_interface.h"
+#include "greenhouse_fsm.h"
 
 #include <stddef.h>
 

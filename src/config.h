@@ -242,36 +242,6 @@
 
 
 /* =========================================================
- * System States
- * ========================================================= */
-
-typedef enum
-{
-    ST_INIT = 0U,
-    ST_AUTO,
-    ST_MANUAL,
-    ST_ALARM,
-    ST_CONFIG
-
-} SystemState_t;
-
-
-/* =========================================================
- * Actuator Identifiers
- * ========================================================= */
-
-typedef enum
-{
-    ACTUATOR_FAN = 0U,
-    ACTUATOR_PUMP,
-    ACTUATOR_LAMP,
-    ACTUATOR_ALARM,
-    ACTUATOR_BUZZER
-
-} ActuatorId_t;
-
-
-/* =========================================================
  * Sensor Identifiers
  * ========================================================= */
 

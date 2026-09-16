@@ -1,6 +1,7 @@
 #include "../../LIB/STD_TYPES.h"
 #include "../../LIB/Math.h"
 
+#include "../Scheduler_module/scheduler.h"
 #include "INTERRUPT_interface.h"
 #include "INTERRUPT_private.h"
 

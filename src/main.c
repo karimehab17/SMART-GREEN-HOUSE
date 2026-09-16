@@ -1,378 +1,361 @@
 #define F_CPU 8000000UL
 
 #include "STD_TYPES.h"
-#include "config.h"
 
 #include "scheduler.h"
-#include "Buttons_Driver.h"
+#include "console.h"
+#include "control.h"
+#include "greenhouse_fsm.h"
+#include "report.h"
+
+#include "Sensors_Driver.h"
 #include "Actuators_Driver.h"
-#include "TIMER_interface.h"
-#include "GPIO_interface.h"
+#include "Buttons_Driver.h"
+#include "lcd_i2c.h"
+
+#include "timer_interface.h"
+#include "uart_interface.h"
 
 #include <avr/interrupt.h>
 
-
 /* =========================================================
- * Test State
+ *                    Global Application Data
  * ========================================================= */
 
-/*
- * 0 = AUTO
- * 1 = MANUAL
- */
-static uint8 g_manualMode = 0U;
+static Config_t g_config;
+static SysData_t g_sysData;
 
-/*
- * 0 = Alarm OFF
- * 1 = Alarm ON
- *
- * Alarm is LATCHED.
- */
-static uint8 g_alarmActive = 0U;
+static uint8 g_halfSecondTicks = 0U;
 
 
 /* =========================================================
- * Update Test LEDs
- *
- * PB5 -> AUTO
- * PB6 -> MANUAL
- * PB7 -> ALARM
- *
- * LEDs are Active-Low:
- * LOW  = ON
- * HIGH = OFF
+ *                    Configuration
  * ========================================================= */
 
-static void Test_UpdateLEDs(void)
+static void APP_LoadDefaults(void)
 {
-    /* Alarm has highest priority */
+    g_config.magic = CFG_MAGIC;
+    g_config.version = CFG_VERSION;
 
-    if (g_alarmActive != 0U)
-    {
-        /* AUTO OFF */
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN5,
-            GPIO_HIGH
-        );
+    g_config.tempOnC = DEFAULT_TEMP_ON_C;
+    g_config.tempOffC = DEFAULT_TEMP_OFF_C;
 
-        /* MANUAL OFF */
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN6,
-            GPIO_HIGH
-        );
+    g_config.soilOnPct = DEFAULT_SOIL_ON_PCT;
+    g_config.soilOffPct = DEFAULT_SOIL_OFF_PCT;
 
-        /* ALARM ON */
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN7,
-            GPIO_LOW
-        );
+    g_config.lightOnPct = DEFAULT_LIGHT_ON_PCT;
+    g_config.lightOffPct = DEFAULT_LIGHT_OFF_PCT;
 
-        return;
-    }
+    g_config.tempAlarmC = DEFAULT_TEMP_ALARM_C;
+    g_config.soilAlarmPct = DEFAULT_SOIL_ALARM_PCT;
 
-
-    /* Alarm OFF */
-
-    (void)GPIO_SetPinValue(
-        GPIO_PORTB,
-        GPIO_PIN7,
-        GPIO_HIGH
-    );
-
-
-    /* AUTO */
-
-    if (g_manualMode == 0U)
-    {
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN5,
-            GPIO_LOW
-        );
-
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN6,
-            GPIO_HIGH
-        );
-    }
-
-    /* MANUAL */
-
-    else
-    {
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN5,
-            GPIO_HIGH
-        );
-
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN6,
-            GPIO_LOW
-        );
-    }
+    g_config.mode = DEFAULT_MODE;
+    g_config.checksum = 0U;
 }
 
 
 /* =========================================================
- * Buttons Task
- *
- * Poll buttons every 10 ms
+ *                    System Data Sync
  * ========================================================= */
 
-static void Test_ButtonsTask(void)
+static void APP_SyncSystemData(void)
+{
+    uint16 tempRaw = 0U;
+    uint16 soilRaw = 0U;
+    uint16 lightRaw = 0U;
+
+    ActuatorStateType state = ACT_STATE_OFF;
+
+    (void)Sensors_ReadRaw(
+        &tempRaw,
+        &soilRaw,
+        &lightRaw
+    );
+
+    (void)Sensors_GetTemperature(
+        &g_sysData.tempC
+    );
+
+    (void)Sensors_GetSoil(
+        &g_sysData.soilPct
+    );
+
+    (void)Sensors_GetLight(
+        &g_sysData.lightPct
+    );
+
+    g_sysData.adcRaw[0] = tempRaw;
+    g_sysData.adcRaw[1] = soilRaw;
+    g_sysData.adcRaw[2] = lightRaw;
+
+    (void)ACT_Get(
+        ACTUATOR_FAN,
+        &state
+    );
+
+    g_sysData.fanOn = (uint8)state;
+
+    (void)ACT_Get(
+        ACTUATOR_PUMP,
+        &state
+    );
+
+    g_sysData.pumpOn = (uint8)state;
+
+    (void)ACT_Get(
+        ACTUATOR_LAMP,
+        &state
+    );
+
+    g_sysData.lampOn = (uint8)state;
+
+    (void)ACT_Get(
+        ACTUATOR_ALARM,
+        &state
+    );
+
+    g_sysData.alarmOn = (uint8)state;
+
+    g_sysData.mode =
+        (uint8)GHSM_GetState();
+}
+
+
+/* =========================================================
+ *                    Scheduler Tasks
+ * ========================================================= */
+
+static void APP_ButtonsTask(void)
 {
     (void)BTN_Poll();
 }
 
 
-/* =========================================================
- * Mode Test
- *
- * D3 -> AUTO <-> MANUAL
- * ========================================================= */
-
-static void Test_ModeTask(void)
+static void APP_FsmTask(void)
 {
-    uint8 modePressed = 0U;
+    (void)GHSM_Update();
+}
 
-    if (BTN_WasPressed(
-            BTN_MODE,
-            &modePressed) != E_OK)
+
+static void APP_SensorsTask(void)
+{
+    (void)Sensors_Update();
+}
+
+
+static void APP_ControlTask(void)
+{
+    if (GHSM_GetState() == ST_AUTO)
     {
-        return;
+        (void)CTRL_Update();
     }
+}
 
 
-    if (modePressed != 0U)
+static void APP_LcdTask(void)
+{
+    APP_SyncSystemData();
+
+    g_halfSecondTicks++;
+
+    if (g_halfSecondTicks >= 2U)
     {
-        if (g_manualMode == 0U)
+        g_halfSecondTicks = 0U;
+
+        if (g_sysData.upTimeSec < 65535U)
         {
-            g_manualMode = 1U;
+            g_sysData.upTimeSec++;
         }
-        else
-        {
-            g_manualMode = 0U;
-        }
-
-        Test_UpdateLEDs();
     }
-}
 
+    LCD_Goto(0U, 0U);
 
-/* =========================================================
- * Alarm Test
- *
- * D2 -> ALARM
- *
- * One press:
- *
- * B7    -> ON
- * Buzzer -> ON
- *
- * Alarm remains ON after releasing D2.
- * ========================================================= */
+    LCD_Print("T");
+    LCD_PrintNum(g_sysData.tempC);
 
-static void Test_AlarmTask(void)
-{
-    uint8 alarmPressed = 0U;
+    LCD_Print(" S");
+    LCD_PrintNum(g_sysData.soilPct);
 
-    if (BTN_WasPressed(
-            BTN_RESET,
-            &alarmPressed) != E_OK)
+    LCD_Print(" L");
+    LCD_PrintNum(g_sysData.lightPct);
+
+    LCD_Print("   ");
+
+    LCD_Goto(1U, 0U);
+
+    LCD_Print("F");
+    LCD_PrintNum(g_sysData.fanOn);
+
+    LCD_Print(" P");
+    LCD_PrintNum(g_sysData.pumpOn);
+
+    LCD_Print(" L");
+    LCD_PrintNum(g_sysData.lampOn);
+
+    LCD_Print(" ");
+
+    if (g_sysData.mode == ST_MANUAL)
     {
-        return;
+        LCD_Print("MANUAL ");
     }
-
-
-    if (alarmPressed != 0U)
+    else if (g_sysData.mode == ST_ALARM)
     {
-        /* LATCH ALARM */
-
-        g_alarmActive = 1U;
-
-        /* Alarm LED ON */
-
-        (void)GPIO_SetPinValue(
-            GPIO_PORTB,
-            GPIO_PIN7,
-            GPIO_LOW
-        );
-
-        /* Buzzer ON */
-
-        (void)ACT_BuzzerOn();
+        LCD_Print("ALARM  ");
+    }
+    else
+    {
+        LCD_Print("AUTO   ");
     }
 }
 
 
-/* =========================================================
- * Timer0 ISR
- *
- * ~10 ms scheduler tick
- * ========================================================= */
-
-ISR(TIMER0_COMP_vect)
+static void APP_ReportTask(void)
 {
-    SCH_Tick();
+    APP_SyncSystemData();
+
+    (void)RPT_Update();
 }
 
 
+static void APP_ConsoleTask(void)
+{
+    (void)CON_Process();
+}
+
+
+
 /* =========================================================
- * Main
+ *                         MAIN
  * ========================================================= */
 
 int main(void)
 {
-    /* ---------------------------------------------------------
-     * Hardware Initialization
-     * --------------------------------------------------------- */
+    /* ---------------- Configuration ---------------- */
+
+    APP_LoadDefaults();
+
+    /* ---------------- HAL Initialization ---------------- */
 
     (void)ACT_Init();
 
     (void)BTN_Init();
 
+    (void)Sensors_Init();
 
-    /* ---------------------------------------------------------
-     * PORT B LED Direction
-     * --------------------------------------------------------- */
+    /* ---------------- Communication ---------------- */
 
-    (void)GPIO_SetPinDirection(
-        GPIO_PORTB,
-        GPIO_PIN5,
-        GPIO_OUTPUT
-    );
+    (void)UART_Init(UART_BAUD_RATE);
 
-    (void)GPIO_SetPinDirection(
-        GPIO_PORTB,
-        GPIO_PIN6,
-        GPIO_OUTPUT
-    );
+    LCD_Init();
 
-    (void)GPIO_SetPinDirection(
-        GPIO_PORTB,
-        GPIO_PIN7,
-        GPIO_OUTPUT
-    );
+    /* ---------------- Application Initialization ---------------- */
 
+    (void)GHSM_Init(&g_config);
 
-    /* ---------------------------------------------------------
-     * Initial LED State
-     *
-     * Active-Low:
-     * HIGH = OFF
-     * --------------------------------------------------------- */
+    (void)CTRL_Init(&g_config);
 
-    (void)GPIO_SetPinValue(
-        GPIO_PORTB,
-        GPIO_PIN5,
-        GPIO_HIGH
-    );
+    (void)RPT_Init(&g_sysData);
 
-    (void)GPIO_SetPinValue(
-        GPIO_PORTB,
-        GPIO_PIN6,
-        GPIO_HIGH
-    );
-
-    (void)GPIO_SetPinValue(
-        GPIO_PORTB,
-        GPIO_PIN7,
-        GPIO_HIGH
-    );
-
-
-    /* ---------------------------------------------------------
-     * Buzzer OFF
-     * --------------------------------------------------------- */
-
-    (void)ACT_BuzzerOff();
-
-
-    /* ---------------------------------------------------------
-     * Scheduler
-     * --------------------------------------------------------- */
+    (void)CON_Init(&g_config);
 
     (void)SCH_Init();
 
+    /* ---------------- Runtime Data ---------------- */
 
-    /* ---------------------------------------------------------
-     * Buttons Polling
-     *
-     * 10 ms
-     * --------------------------------------------------------- */
+    g_sysData.upTimeSec = 0U;
+
+    APP_SyncSystemData();
+
+    LCD_Clear();
+
+    /* =================================================
+     *                    Scheduler Tasks
+     * ================================================= */
 
     (void)SCH_CreateTask(
         SCH_TASK_BUTTONS,
-        Test_ButtonsTask,
+        APP_ButtonsTask,
         SCH_BUTTONS_PERIOD_MS
     );
 
-
-    /* ---------------------------------------------------------
-     * Mode Task
-     *
-     * 10 ms
-     *
-     * D3 -> AUTO / MANUAL
-     * --------------------------------------------------------- */
-
     (void)SCH_CreateTask(
         SCH_TASK_FSM,
-        Test_ModeTask,
+        APP_FsmTask,
         SCH_FSM_PERIOD_MS
     );
 
+    (void)SCH_CreateTask(
+        SCH_TASK_SENSORS,
+        APP_SensorsTask,
+        SCH_SENSORS_PERIOD_MS
+    );
 
-    /* ---------------------------------------------------------
-     * Alarm Task
-     *
-     * 20 ms
-     *
-     * D2 -> Alarm
-     * --------------------------------------------------------- */
+    (void)SCH_CreateTask(
+        SCH_TASK_CONTROL,
+        APP_ControlTask,
+        SCH_CONTROL_PERIOD_MS
+    );
+
+    (void)SCH_CreateTask(
+        SCH_TASK_LCD,
+        APP_LcdTask,
+        SCH_LCD_PERIOD_MS
+    );
+
+    (void)SCH_CreateTask(
+        SCH_TASK_REPORT,
+        APP_ReportTask,
+        SCH_REPORT_PERIOD_MS
+    );
 
     (void)SCH_CreateTask(
         SCH_TASK_CONSOLE,
-        Test_AlarmTask,
+        APP_ConsoleTask,
         SCH_CONSOLE_PERIOD_MS
     );
 
-
-    /* ---------------------------------------------------------
-     * Timer0
-     * --------------------------------------------------------- */
+    /* =================================================
+     *                    Timer0 Setup
+     * ================================================= */
 
     (void)TIMER0_Init(TIMER0_CTC);
 
+    /*
+     * F_CPU = 8 MHz
+     * Prescaler = 1024
+     * OCR0 = 77
+     *
+     * Tick ~= 10 ms
+     */
+
     (void)TIMER0_SetCompareValue(77U);
 
-    (void)TIMER0_SetCompareInterrupt(1U);
+    (void)TIMER0_SetCompareInterrupt(
+        TIMER_INTERRUPT_ENABLE
+    );
 
-    (void)TIMER0_Start(TIMER0_PRESC_1024);
+    (void)TIMER0_Start(
+        TIMER0_PRESC_1024
+    );
 
+    /* ---------------- UART RX Interrupt ---------------- */
 
-    /* ---------------------------------------------------------
-     * Enable Interrupts
-     * --------------------------------------------------------- */
+    (void)UART_SetRxInterrupt(
+        UART_INTERRUPT_ENABLE
+    );
+
+    /* ---------------- Global Interrupt ---------------- */
 
     sei();
 
-
-    /* ---------------------------------------------------------
-     * Super Loop
-     * --------------------------------------------------------- */
+    /* =================================================
+     *                    Super Loop
+     * ================================================= */
 
     while (1)
     {
         SCH_Run();
     }
-
 
     return 0;
 }

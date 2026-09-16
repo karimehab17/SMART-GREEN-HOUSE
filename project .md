@@ -284,18 +284,18 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 
 ## 10. Final Demo Checklist
 
-- [x] Temperature sensor changes correctly. — ADC Driver
-- [x] Soil moisture sensor changes correctly. — ADC Driver
-- [x] Light sensor changes correctly. — ADC Driver
-- [x] Fan responds with hysteresis.  — GPIO Driver
-- [x] Pump responds with hysteresis. — GPIO Driver
-- [x] Lamp responds with hysteresis. — GPIO Driver
-- [x] Alarm activates at the specified limits.— GPIO Driver
-- [x] Alarm reset works. — GPIO Driver + INTERRUPT Driver
-- [x] Mode button works. — GPIO Driver + INTERRUPT Driver
-- [x] LCD displays live values and system state. —I2C/TWI Driver + LCD Driver
-- [ ] UART sends status every 5 seconds. —UART Driver + Timer0 Driver
-- [ ] UART commands are received correctly. —UART Driver
+- [x] Temperature sensor changes correctly. — ADC Driver + Sensors
+- [x] Soil moisture sensor changes correctly. — ADC Driver + Sensors
+- [x] Light sensor changes correctly. — ADC Driver + Sensors
+- [x] Fan responds with hysteresis.  — GPIO Driver + Control + Actuators
+- [x] Pump responds with hysteresis. — GPIO Driver + Control + Actuators
+- [x] Lamp responds with hysteresis. — GPIO Driver + Control + Actuators
+- [x] Alarm activates at the specified limits.— GPIO Driver + Control + Actuators
+- [x] Alarm reset works. — GPIO Driver + INTERRUPT Driver + Buttons + Greenhouse FSM + Actuators
+- [x] Mode button works. — GPIO Driver + INTERRUPT Driver + Buttons + Greenhouse FSM 
+- [x] LCD displays live values and system state. —I2C/TWI Driver + LCD Driver + ٌReport
+- [ ] UART sends status every 5 seconds. —UART Driver + Timer0 Driver + Report + Console
+- [ ] UART commands are received correctly. —UART Driver + Console + Greenhouse FSM
 - [x] No SPI-related code or hardware remains.
 
 

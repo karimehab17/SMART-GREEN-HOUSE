@@ -2,6 +2,7 @@
 #include "config.h"
 #include "i2c_interface.h"
 #include "i2c_private.h"
+#include "Math.h"
 
 #include <stddef.h>
 
