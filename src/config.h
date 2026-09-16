@@ -94,4 +94,37 @@ typedef struct
 #define LCD_CLEAR_DELAY_MS     2u
 } Config_t;
 
+
+/* =========================================================
+ * Scheduler Configuration
+ * ========================================================= */
+
+#define SCH_TASK_COUNT              7u
+#define SCH_TICK_MS                 10u
+
+/* Task IDs according to project README */
+#define SCH_TASK_BUTTONS            0u
+#define SCH_TASK_FSM                1u
+#define SCH_TASK_SENSORS            2u
+#define SCH_TASK_CONTROL            3u
+#define SCH_TASK_LCD                4u
+#define SCH_TASK_REPORT             5u
+#define SCH_TASK_CONSOLE            6u
+
+/* Task periods */
+#define SCH_BUTTONS_PERIOD_MS       10u
+#define SCH_FSM_PERIOD_MS           10u
+#define SCH_SENSORS_PERIOD_MS       100u
+#define SCH_CONTROL_PERIOD_MS       200u
+#define SCH_LCD_PERIOD_MS           500u
+#define SCH_REPORT_PERIOD_MS        5000u
+#define SCH_CONSOLE_PERIOD_MS       20u
+
+/* Timer2 / Buzzer Configuration */
+#define BUZZER_PORT                 GPIO_PORTD
+#define BUZZER_PIN                  GPIO_PIN7
+
+#define BUZZER_PWM_DUTY_PERCENT     50u
+#define BUZZER_TONE_HZ              2000u
+
 #endif /* CONFIG_H */

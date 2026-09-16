@@ -360,7 +360,6 @@ STD_ReturnType TIMER2_PWM(uint8 Copy_u8DutyPercent)
     return E_OK;
 }
 
-
 STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz)
 {
     if (Copy_u16FrequencyHz == 0u)
@@ -369,9 +368,13 @@ STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz)
     }
 
     /*
-     * Fast PWM Timer2 has fixed TOP = 255.
+     * Timer2 Fast PWM
+     * Output: OC2 (PD7)
+     * Duty cycle: 50%
      *
-     * Available frequencies at F_CPU = 8 MHz:
+     * F_CPU = 8 MHz
+     *
+     * Available PWM frequencies with TOP = 255:
      *
      * N = 1    -> 31250 Hz
      * N = 8    -> 3906 Hz
@@ -379,12 +382,12 @@ STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz)
      * N = 64   -> 488 Hz
      * N = 128  -> 244 Hz
      * N = 256  -> 122 Hz
-     * N = 1024 -> 30 Hz
+     * N = 1024 -> 30.5 Hz
      *
-     * For buzzer we select the closest useful range.
+     * The closest useful Timer2 frequency range is selected.
      */
 
-    /* Fast PWM + non-inverting output */
+    /* Fast PWM + non-inverting output on OC2 */
     TIMER2_REG_TCCR2 &= ~((1u << WGM21) |
                           (1u << WGM20) |
                           (1u << COM21) |
@@ -397,11 +400,14 @@ STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz)
     /* 50% duty cycle */
     TIMER2_REG_OCR2 = 127u;
 
-    /* Select prescaler */
+    /* Stop Timer2 before changing the prescaler */
     TIMER2_REG_TCCR2 &= ~((1u << CS22) |
                           (1u << CS21) |
                           (1u << CS20));
 
+    /*
+     * Select the closest available frequency.
+     */
     if (Copy_u16FrequencyHz >= 15000u)
     {
         /* N = 1 -> 31250 Hz */
@@ -442,21 +448,6 @@ STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz)
                             (1u << CS21) |
                             (1u << CS20);
     }
-
-    return E_OK;
-}
-
-
-STD_ReturnType TIMER2_Stop(void)
-{
-    /* Stop Timer2 clock */
-    TIMER2_REG_TCCR2 &= ~((1u << CS22) |
-                          (1u << CS21) |
-                          (1u << CS20));
-
-    /* Disconnect OC2 */
-    TIMER2_REG_TCCR2 &= ~((1u << COM21) |
-                          (1u << COM20));
 
     return E_OK;
 }
