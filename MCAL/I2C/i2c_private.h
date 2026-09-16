@@ -1,44 +1,31 @@
 #ifndef I2C_PRIVATE_H
 #define I2C_PRIVATE_H
 
-/*
- * I2C / TWI private layer
- * ATmega32
- *
- * Include this file ONLY from I2C.c.
- */
+#include "../../LIB/STD_TYPES.h"
 
-/* ================= TWI Registers ================= */
+/* ==================== TWI Registers ==================== */
 
-#define TWBR    (*(volatile uint8 *)0x20u)
-#define TWSR    (*(volatile uint8 *)0x21u)
-#define TWAR    (*(volatile uint8 *)0x22u)
-#define TWDR    (*(volatile uint8 *)0x23u)
-#define TWCR    (*(volatile uint8 *)0x56u)
+#define TWBR    (*(volatile uint8*)0x20U)
+#define TWSR    (*(volatile uint8*)0x21U)
+#define TWAR    (*(volatile uint8*)0x22U)
+#define TWDR    (*(volatile uint8*)0x23U)
+#define TWCR    (*(volatile uint8*)0x56U)
 
-/* ================= TWCR Bit Positions ================= */
+/* ==================== TWCR Bits ==================== */
 
-#define TWINT   7u
-#define TWEA    6u
-#define TWSTA   5u
-#define TWSTO   4u
-#define TWWC    3u
-#define TWEN    2u
-#define TWIE    0u
+#define TWIE    0U
+#define TWWC    3U
+#define TWSTO   4U
+#define TWSTA   5U
+#define TWEA    6U
+#define TWINT   7U
+#define TWEN    2U
 
-/* ================= TWSR ================= */
+/* ==================== TWSR ==================== */
 
-/*
- * TWS7..TWS3 = Status bits
- * TWPS1..TWPS0 = Prescaler bits
- *
- * Always mask status using:
- * (TWSR & 0xF8)
- */
+#define TWI_PRESCALER_MASK   0x03U
+#define TWS_STATUS_MASK      0xF8U
 
-#define TWS_STATUS_MASK     0xF8u
-
-/* TWI prescaler = 1 */
-#define TWI_PRESCALER_1    0u
+#define TWI_PRESCALER_1      0U
 
 #endif /* I2C_PRIVATE_H */
