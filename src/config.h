@@ -70,6 +70,10 @@
 
 #define ADC_MAX_VALUE               1023U
 
+/* ---------------- Sensor Filtering ---------------- */
+
+#define SENSOR_FILTER_SAMPLES       3U
+#define SENSOR_CHANNEL_COUNT        3U
 
 /* =========================================================
  * Sensor Scaling
@@ -358,6 +362,7 @@ typedef struct
 
 #define BUTTON_PRESSED             0U
 #define BUTTON_RELEASED            1U
+#define BUTTON_DEBOUNCE_SAMPLES     2U
 
 
 /* =========================================================

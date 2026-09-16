@@ -1,19 +1,25 @@
 #include "lcd_i2c.h"
-#include "i2c_interface.h"
+
+#include "../../MCAL/I2C/i2c_interface.h"
 
 #include <stddef.h>
 #include <util/delay.h>
 
 
-/* ================= Private Functions ================= */
+/* ==================== Private Functions ==================== */
 
-static STD_ReturnType LCD_Write(uint8 Copy_u8Control, uint8 Copy_u8Data);
+static STD_ReturnType LCD_Write(
+    uint8 Copy_u8Control,
+    uint8 Copy_u8Data);
 
-static STD_ReturnType LCD_SendCommand(uint8 Copy_u8Command);
+static STD_ReturnType LCD_SendCommand(
+    uint8 Copy_u8Command);
 
-static STD_ReturnType LCD_SendData(uint8 Copy_u8Data);
+static STD_ReturnType LCD_SendData(
+    uint8 Copy_u8Data);
 
-/* ================= Public Functions ================= */
+
+/* ==================== Initialization ==================== */
 
 void LCD_Init(void)
 {
@@ -21,20 +27,35 @@ void LCD_Init(void)
 
     _delay_ms(LCD_INIT_DELAY_MS);
 
-    LCD_SendCommand(LCD_FUNCTION_SET);
-    LCD_SendCommand(LCD_DISPLAY_ON);
-    LCD_SendCommand(LCD_CLEAR_DISPLAY);
+    (void)LCD_SendCommand(LCD_FUNCTION_SET);
+    (void)LCD_SendCommand(LCD_DISPLAY_ON);
+    (void)LCD_SendCommand(LCD_CLEAR_DISPLAY);
 
     _delay_ms(LCD_CLEAR_DELAY_MS);
 
-    LCD_SendCommand(LCD_ENTRY_MODE);
+    (void)LCD_SendCommand(LCD_ENTRY_MODE);
 }
 
-void LCD_Goto(uint8 Copy_u8Row, uint8 Copy_u8Column)
+
+/* ==================== Clear ==================== */
+
+void LCD_Clear(void)
+{
+    (void)LCD_SendCommand(LCD_CLEAR_DISPLAY);
+
+    _delay_ms(LCD_CLEAR_DELAY_MS);
+}
+
+
+/* ==================== Position ==================== */
+
+void LCD_Goto(
+    uint8 Copy_u8Row,
+    uint8 Copy_u8Column)
 {
     uint8 Local_u8Address;
 
-    if (Copy_u8Row == 0u)
+    if (Copy_u8Row == 0U)
     {
         Local_u8Address =
             (uint8)(LCD_LINE0_ADDRESS + Copy_u8Column);
@@ -45,8 +66,11 @@ void LCD_Goto(uint8 Copy_u8Row, uint8 Copy_u8Column)
             (uint8)(LCD_LINE1_ADDRESS + Copy_u8Column);
     }
 
-    LCD_SendCommand(Local_u8Address);
+    (void)LCD_SendCommand(Local_u8Address);
 }
+
+
+/* ==================== String ==================== */
 
 void LCD_Print(const char *Copy_p8String)
 {
@@ -57,40 +81,45 @@ void LCD_Print(const char *Copy_p8String)
 
     while (*Copy_p8String != '\0')
     {
-        LCD_SendData((uint8)*Copy_p8String);
+        (void)LCD_SendData((uint8)*Copy_p8String);
         Copy_p8String++;
     }
 }
 
+
+/* ==================== Number ==================== */
+
 void LCD_PrintNum(uint16 Copy_u16Number)
 {
     char Local_acBuffer[5];
-    uint8 Local_u8Index = 0u;
+    uint8 Local_u8Index = 0U;
 
-    if (Copy_u16Number == 0u)
+    if (Copy_u16Number == 0U)
     {
-        LCD_SendData((uint8)'0');
+        (void)LCD_SendData((uint8)'0');
         return;
     }
 
-    while (Copy_u16Number > 0u)
+    while (Copy_u16Number > 0U)
     {
         Local_acBuffer[Local_u8Index] =
-            (char)('0' + (Copy_u16Number % 10u));
+            (char)('0' + (Copy_u16Number % 10U));
 
-        Copy_u16Number /= 10u;
+        Copy_u16Number /= 10U;
         Local_u8Index++;
     }
 
-    while (Local_u8Index > 0u)
+    while (Local_u8Index > 0U)
     {
         Local_u8Index--;
 
-        LCD_SendData(
-            (uint8)Local_acBuffer[Local_u8Index]
-        );
+        (void)LCD_SendData(
+            (uint8)Local_acBuffer[Local_u8Index]);
     }
 }
+
+
+/* ==================== Low-Level Write ==================== */
 
 static STD_ReturnType LCD_Write(
     uint8 Copy_u8Control,
@@ -110,7 +139,7 @@ static STD_ReturnType LCD_Write(
 
     if (Local_u8Status != E_OK)
     {
-        I2C_SendStop();
+        (void)I2C_SendStop();
         return E_NOK;
     }
 
@@ -119,32 +148,36 @@ static STD_ReturnType LCD_Write(
 
     if (Local_u8Status != E_OK)
     {
-        I2C_SendStop();
+        (void)I2C_SendStop();
         return E_NOK;
     }
 
     Local_u8Status =
         I2C_SendByte(Copy_u8Data);
 
-    I2C_SendStop();
-
-    _delay_ms(LCD_WRITE_DELAY_MS);
+    (void)I2C_SendStop();
 
     return Local_u8Status;
 }
 
-static STD_ReturnType LCD_SendCommand(uint8 Copy_u8Command)
+
+/* ==================== Command ==================== */
+
+static STD_ReturnType LCD_SendCommand(
+    uint8 Copy_u8Command)
 {
     return LCD_Write(
         LCD_COMMAND_CONTROL,
-        Copy_u8Command
-    );
+        Copy_u8Command);
 }
 
-static STD_ReturnType LCD_SendData(uint8 Copy_u8Data)
+
+/* ==================== Data ==================== */
+
+static STD_ReturnType LCD_SendData(
+    uint8 Copy_u8Data)
 {
     return LCD_Write(
         LCD_DATA_CONTROL,
-        Copy_u8Data
-    );
+        Copy_u8Data);
 }
