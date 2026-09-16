@@ -174,3 +174,37 @@ STD_ReturnType ACT_Get(ActuatorType actuator,
 
     return E_OK;
 }
+STD_ReturnType ACT_BuzzerOn(void)
+{
+    return GPIO_SetPinValue(
+        GPIO_PORTD,
+        GPIO_PIN7,
+        GPIO_HIGH
+    );
+}
+
+STD_ReturnType ACT_BuzzerOff(void)
+{
+    return GPIO_SetPinValue(
+        GPIO_PORTD,
+        GPIO_PIN7,
+        GPIO_LOW
+    );
+}
+
+STD_ReturnType ACT_BuzzerToggle(void)
+{
+    uint8 value = GPIO_LOW;
+
+    if (GPIO_GetPinValue(GPIO_PORTD, GPIO_PIN7, &value) != E_OK)
+    {
+        return E_NOK;
+    }
+
+    if (value == GPIO_LOW)
+    {
+        return ACT_BuzzerOn();
+    }
+
+    return ACT_BuzzerOff();
+}

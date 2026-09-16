@@ -22,10 +22,9 @@ typedef enum
 
 STD_ReturnType ACT_Init(void);
 STD_ReturnType ACT_Set(ActuatorType actuator, ActuatorStateType state);
-STD_ReturnType ACT_SetAll(ActuatorStateType fanState,
-                          ActuatorStateType pumpState,
-                          ActuatorStateType lampState,
-                          ActuatorStateType alarmState);
+STD_ReturnType ACT_SetAll(ActuatorStateType fanState, ActuatorStateType pumpState, ActuatorStateType lampState, ActuatorStateType alarmState);
 STD_ReturnType ACT_Get(ActuatorType actuator, ActuatorStateType *pState);
-
+STD_ReturnType ACT_BuzzerOn(void);
+STD_ReturnType ACT_BuzzerOff(void);
+STD_ReturnType ACT_BuzzerToggle(void);
 #endif /* ACTUATORS_DRIVER_H */
