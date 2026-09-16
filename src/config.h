@@ -120,6 +120,8 @@ typedef struct
 #define SCH_REPORT_PERIOD_MS        5000u
 #define SCH_CONSOLE_PERIOD_MS       20u
 
+#define SCH_FACTORY_RESET_TICKS   300u
+
 /* Timer2 / Buzzer Configuration */
 #define BUZZER_PORT                 GPIO_PORTD
 #define BUZZER_PIN                  GPIO_PIN7
