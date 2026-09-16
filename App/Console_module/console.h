@@ -2,6 +2,7 @@
 #define CONSOLE_H
 
 #include "../../LIB/STD_TYPES.h"
+#include "config.h"
 
 typedef enum
 {
@@ -9,16 +10,9 @@ typedef enum
     CONSOLE_ERROR
 } CONSOLE_Status_t;
 
-/* ==================== Console Limits ==================== */
-
 #define CONSOLE_MAX_COMMAND_LENGTH    24U
 
-/* ==================== Console Initialization ==================== */
-
 CONSOLE_Status_t CON_Init(void);
-
-/* ==================== Console Processing ==================== */
-
 CONSOLE_Status_t CON_Process(void);
 
 #endif /* CONSOLE_H */

@@ -195,6 +195,7 @@
 
 #define UART_MAX_COMMAND_LENGTH     24U
 
+#define UART_TX_BUFFER_SIZE         128U
 
 /* =========================================================
  * LCD Configuration
