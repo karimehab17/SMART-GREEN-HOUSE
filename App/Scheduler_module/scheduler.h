@@ -2,11 +2,16 @@
 #define SCHEDULER_H
 
 #include "STD_TYPES.h"
-#include "Math.h"
 #include "config.h"
 
+/* =========================================================
+ * Scheduler task callback
+ * ========================================================= */
 typedef void (*SCH_TaskCallbackType)(void);
 
+/* =========================================================
+ * Scheduler task control block
+ * ========================================================= */
 typedef struct
 {
     SCH_TaskCallbackType callback;
@@ -15,6 +20,10 @@ typedef struct
     uint8 enabled;
 } SCH_TaskType;
 
+/* =========================================================
+ * Scheduler API
+ * ========================================================= */
+
 STD_ReturnType SCH_Init(void);
 
 STD_ReturnType SCH_CreateTask(uint8 taskId,
@@ -22,11 +31,13 @@ STD_ReturnType SCH_CreateTask(uint8 taskId,
                               uint16 periodMs);
 
 STD_ReturnType SCH_EnableTask(uint8 taskId);
+
 STD_ReturnType SCH_DisableTask(uint8 taskId);
 
 void SCH_Tick(void);
+
 void SCH_Run(void);
 
 uint16 SCH_GetOverrunCount(void);
 
-#endif
+#endif /* SCHEDULER_H */
