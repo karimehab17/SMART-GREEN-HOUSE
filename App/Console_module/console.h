@@ -10,9 +10,7 @@ typedef enum
     CONSOLE_ERROR
 } CONSOLE_Status_t;
 
-#define CONSOLE_MAX_COMMAND_LENGTH    24U
-
-CONSOLE_Status_t CON_Init(void);
+CONSOLE_Status_t CON_Init(Config_t *pConfig);
 CONSOLE_Status_t CON_Process(void);
 
 #endif /* CONSOLE_H */

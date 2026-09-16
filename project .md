@@ -284,19 +284,19 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 
 ## 10. Final Demo Checklist
 
-- [x] Temperature sensor changes correctly.
-- [x] Soil moisture sensor changes correctly.
-- [x] Light sensor changes correctly.
-- [x] Fan responds with hysteresis.
-- [x] Pump responds with hysteresis.
-- [x] Lamp responds with hysteresis.
-- [x] Alarm activates at the specified limits.
-- [ ] Alarm reset works.
-- [ ] Mode button works.
-- [x] LCD displays live values and system state.
-- [ ] UART sends status every 5 seconds.
-- [ ] UART commands are received correctly.
-- [ ] No SPI-related code or hardware remains.
+- [x] Temperature sensor changes correctly. — ADC Driver
+- [x] Soil moisture sensor changes correctly. — ADC Driver
+- [x] Light sensor changes correctly. — ADC Driver
+- [x] Fan responds with hysteresis.  — GPIO Driver
+- [x] Pump responds with hysteresis. — GPIO Driver
+- [x] Lamp responds with hysteresis. — GPIO Driver
+- [x] Alarm activates at the specified limits.— GPIO Driver
+- [x] Alarm reset works. — GPIO Driver + INTERRUPT Driver
+- [x] Mode button works. — GPIO Driver + INTERRUPT Driver
+- [x] LCD displays live values and system state. —I2C/TWI Driver + LCD Driver
+- [ ] UART sends status every 5 seconds. —UART Driver + Timer0 Driver
+- [ ] UART commands are received correctly. —UART Driver
+- [x] No SPI-related code or hardware remains.
 
 
 **Prepared by: Karim Ehab Gamal | Ahmed Mohsen El-Shabrawy**

@@ -4,29 +4,34 @@
 #include "../../HAl/Sensors/Sensors_Driver.h"
 #include "../../HAl/Actuators/Actuators_Driver.h"
 #include "../Greenhouse_FSM/greenhouse_fsm.h"
+#include "../Report_module/report.h"
 
 #include <stddef.h>
 #include <string.h>
 
 static Config_t *g_pConfig = NULL;
 
-static char g_commandBuffer[CONSOLE_MAX_COMMAND_LENGTH + 1U];
+static char g_commandBuffer[UART_MAX_COMMAND_LENGTH + 1U];
 static uint8 g_commandLength = 0U;
 static uint8 g_discardLine = 0U;
+
+
+/* ==================== Output Helpers ==================== */
 
 static void CON_SendText(const char *Copy_pText)
 {
     if (Copy_pText != NULL)
     {
-        (void)UART_SendString(
-            (const uint8 *)Copy_pText);
+        (void)UART_SendString((const uint8 *)Copy_pText);
     }
 }
+
 
 static void CON_SendOK(void)
 {
     CON_SendText("OK\r\n");
 }
+
 
 static void CON_SendError(const char *Copy_pError)
 {
@@ -34,6 +39,9 @@ static void CON_SendError(const char *Copy_pError)
     CON_SendText(Copy_pError);
     CON_SendText("\r\n");
 }
+
+
+/* ==================== String Helpers ==================== */
 
 static char CON_ToUpper(char Copy_cChar)
 {
@@ -47,6 +55,7 @@ static char CON_ToUpper(char Copy_cChar)
     return Copy_cChar;
 }
 
+
 static void CON_Normalize(void)
 {
     uint8 Local_u8Index;
@@ -56,12 +65,14 @@ static void CON_Normalize(void)
          Local_u8Index++)
     {
         g_commandBuffer[Local_u8Index] =
-            CON_ToUpper(
-                g_commandBuffer[Local_u8Index]);
+            CON_ToUpper(g_commandBuffer[Local_u8Index]);
     }
 
     g_commandBuffer[g_commandLength] = '\0';
 }
+
+
+/* ==================== Number Parser ==================== */
 
 static STD_ReturnType CON_ParseNumber(
     const char *Copy_pText,
@@ -69,6 +80,7 @@ static STD_ReturnType CON_ParseNumber(
 {
     uint16 Local_u16Value = 0U;
     uint8 Local_u8Digits = 0U;
+    uint8 Local_u8Digit;
 
     if ((Copy_pText == NULL) ||
         (Copy_pu16Value == NULL))
@@ -84,9 +96,18 @@ static STD_ReturnType CON_ParseNumber(
     while ((*Copy_pText >= '0') &&
            (*Copy_pText <= '9'))
     {
+        Local_u8Digit =
+            (uint8)(*Copy_pText - '0');
+
+        if (Local_u16Value >
+            (uint16)((65535U - Local_u8Digit) / 10U))
+        {
+            return E_NOK;
+        }
+
         Local_u16Value =
             (uint16)((Local_u16Value * 10U) +
-                     (uint16)(*Copy_pText - '0'));
+                     Local_u8Digit);
 
         Local_u8Digits++;
         Copy_pText++;
@@ -108,6 +129,9 @@ static STD_ReturnType CON_ParseNumber(
     return E_OK;
 }
 
+
+/* ==================== Config Validation ==================== */
+
 static uint8 CON_ValidateConfig(
     const Config_t *Copy_pConfig)
 {
@@ -122,13 +146,12 @@ static uint8 CON_ValidateConfig(
         return 0U;
     }
 
-    if ((Copy_pConfig->tempOffC < 0U) ||
-        (Copy_pConfig->tempOffC > 50U))
+    if (Copy_pConfig->tempOffC > 50U)
     {
         return 0U;
     }
 
-    if (Copy_pConfig->tempOnC <=
+    if (Copy_pConfig->tempOnC <
         (uint8)(Copy_pConfig->tempOffC + 2U))
     {
         return 0U;
@@ -146,8 +169,8 @@ static uint8 CON_ValidateConfig(
         return 0U;
     }
 
-    if ((Copy_pConfig->soilOnPct >=
-         Copy_pConfig->soilOffPct))
+    if (Copy_pConfig->soilOnPct >=
+        Copy_pConfig->soilOffPct)
     {
         return 0U;
     }
@@ -167,26 +190,8 @@ static uint8 CON_ValidateConfig(
     return 1U;
 }
 
-static CONSOLE_Status_t CON_HandleRead(
-    const char *Copy_pCommand)
-{
-    uint8 Local_u8Value;
 
-    if (strcmp(Copy_pCommand, "TEMP?") == 0)
-    {
-        if (Sensors_GetTemperature(
-                &Local_u8Value) != E_OK)
-        {
-            return CONSOLE_ERROR;
-        }
-
-        CON_SendText("TEMP=");
-        /* Numeric response handled below. */
-        return CONSOLE_ERROR;
-    }
-
-    return CONSOLE_ERROR;
-}
+/* ==================== Numeric Output ==================== */
 
 static void CON_SendUint8(uint8 Copy_u8Value)
 {
@@ -220,8 +225,73 @@ static void CON_SendUint8(uint8 Copy_u8Value)
     CON_SendText(Local_acBuffer);
 }
 
+
+/* ==================== Sensor Commands ==================== */
+
+static CONSOLE_Status_t CON_HandleSensorCommand(
+    const char *Copy_pCommand)
+{
+    uint8 Local_u8Value;
+
+    if (strcmp(Copy_pCommand, "TEMP?") == 0)
+    {
+        if (Sensors_GetTemperature(
+                &Local_u8Value) != E_OK)
+        {
+            return CONSOLE_ERROR;
+        }
+
+        CON_SendText("TEMP=");
+        CON_SendUint8(Local_u8Value);
+        CON_SendText("\r\n");
+
+        return CONSOLE_OK;
+    }
+
+    if (strcmp(Copy_pCommand, "SOIL?") == 0)
+    {
+        if (Sensors_GetSoil(
+                &Local_u8Value) != E_OK)
+        {
+            return CONSOLE_ERROR;
+        }
+
+        CON_SendText("SOIL=");
+        CON_SendUint8(Local_u8Value);
+        CON_SendText("\r\n");
+
+        return CONSOLE_OK;
+    }
+
+    if (strcmp(Copy_pCommand, "LIGHT?") == 0)
+    {
+        if (Sensors_GetLight(
+                &Local_u8Value) != E_OK)
+        {
+            return CONSOLE_ERROR;
+        }
+
+        CON_SendText("LIGHT=");
+        CON_SendUint8(Local_u8Value);
+        CON_SendText("\r\n");
+
+        return CONSOLE_OK;
+    }
+
+    return CONSOLE_ERROR;
+}
+
+
+/* ==================== Config Command ==================== */
+
 static void CON_SendConfig(void)
 {
+    if (g_pConfig == NULL)
+    {
+        CON_SendError("ARG");
+        return;
+    }
+
     CON_SendText("CFG=");
 
     CON_SendUint8(g_pConfig->tempOnC);
@@ -250,56 +320,8 @@ static void CON_SendConfig(void)
     CON_SendText("\r\n");
 }
 
-static CONSOLE_Status_t CON_HandleSensorCommand(
-    const char *Copy_pCommand)
-{
-    uint8 Local_u8Value;
 
-    if (strcmp(Copy_pCommand, "TEMP?") == 0)
-    {
-        if (Sensors_GetTemperature(
-                &Local_u8Value) != E_OK)
-        {
-            return CONSOLE_ERROR;
-        }
-
-        CON_SendText("TEMP=");
-        CON_SendUint8(Local_u8Value);
-        CON_SendText("\r\n");
-
-        return CONSOLE_OK;
-    }
-
-    if (strcmp(Copy_pCommand, "SOIL?") == 0)
-    {
-        if (Sensors_GetSoil(&Local_u8Value) != E_OK)
-        {
-            return CONSOLE_ERROR;
-        }
-
-        CON_SendText("SOIL=");
-        CON_SendUint8(Local_u8Value);
-        CON_SendText("\r\n");
-
-        return CONSOLE_OK;
-    }
-
-    if (strcmp(Copy_pCommand, "LIGHT?") == 0)
-    {
-        if (Sensors_GetLight(&Local_u8Value) != E_OK)
-        {
-            return CONSOLE_ERROR;
-        }
-
-        CON_SendText("LIGHT=");
-        CON_SendUint8(Local_u8Value);
-        CON_SendText("\r\n");
-
-        return CONSOLE_OK;
-    }
-
-    return CONSOLE_ERROR;
-}
+/* ==================== Actuator Commands ==================== */
 
 static CONSOLE_Status_t CON_HandleActuator(
     const char *Copy_pCommand)
@@ -351,13 +373,68 @@ static CONSOLE_Status_t CON_HandleActuator(
             Local_enActuator,
             Local_enState) != E_OK)
     {
-        return CONSOLE_ERROR;
+        CON_SendError("ARG");
+        return CONSOLE_OK;
     }
 
     CON_SendOK();
 
     return CONSOLE_OK;
 }
+
+
+/* ==================== SET Command ==================== */
+
+static STD_ReturnType CON_SetParameter(
+    Config_t *Copy_pConfig,
+    const char *Copy_pName,
+    uint16 Copy_u16Value)
+{
+    if ((Copy_pConfig == NULL) ||
+        (Copy_pName == NULL) ||
+        (Copy_u16Value > 255U))
+    {
+        return E_NOK;
+    }
+
+    if (strcmp(Copy_pName, "TEMPON") == 0)
+    {
+        Copy_pConfig->tempOnC =
+            (uint8)Copy_u16Value;
+    }
+    else if (strcmp(Copy_pName, "TEMPOFF") == 0)
+    {
+        Copy_pConfig->tempOffC =
+            (uint8)Copy_u16Value;
+    }
+    else if (strcmp(Copy_pName, "SOILON") == 0)
+    {
+        Copy_pConfig->soilOnPct =
+            (uint8)Copy_u16Value;
+    }
+    else if (strcmp(Copy_pName, "SOILOFF") == 0)
+    {
+        Copy_pConfig->soilOffPct =
+            (uint8)Copy_u16Value;
+    }
+    else if (strcmp(Copy_pName, "LIGHTON") == 0)
+    {
+        Copy_pConfig->lightOnPct =
+            (uint8)Copy_u16Value;
+    }
+    else if (strcmp(Copy_pName, "LIGHTOFF") == 0)
+    {
+        Copy_pConfig->lightOffPct =
+            (uint8)Copy_u16Value;
+    }
+    else
+    {
+        return E_NOK;
+    }
+
+    return E_OK;
+}
+
 
 static CONSOLE_Status_t CON_HandleSet(
     char *Copy_pCommand)
@@ -366,6 +443,12 @@ static CONSOLE_Status_t CON_HandleSet(
     char *Local_pValue;
     uint16 Local_u16Value;
     Config_t Local_Config;
+
+    if (g_pConfig == NULL)
+    {
+        CON_SendError("ARG");
+        return CONSOLE_OK;
+    }
 
     Local_pName = strtok(Copy_pCommand, " ");
     Local_pValue = strtok(NULL, " ");
@@ -388,37 +471,10 @@ static CONSOLE_Status_t CON_HandleSet(
 
     Local_Config = *g_pConfig;
 
-    if (strcmp(Local_pName, "TEMPON") == 0)
-    {
-        Local_Config.tempOnC =
-            (uint8)Local_u16Value;
-    }
-    else if (strcmp(Local_pName, "TEMPOFF") == 0)
-    {
-        Local_Config.tempOffC =
-            (uint8)Local_u16Value;
-    }
-    else if (strcmp(Local_pName, "SOILON") == 0)
-    {
-        Local_Config.soilOnPct =
-            (uint8)Local_u16Value;
-    }
-    else if (strcmp(Local_pName, "SOILOFF") == 0)
-    {
-        Local_Config.soilOffPct =
-            (uint8)Local_u16Value;
-    }
-    else if (strcmp(Local_pName, "LIGHTON") == 0)
-    {
-        Local_Config.lightOnPct =
-            (uint8)Local_u16Value;
-    }
-    else if (strcmp(Local_pName, "LIGHTOFF") == 0)
-    {
-        Local_Config.lightOffPct =
-            (uint8)Local_u16Value;
-    }
-    else
+    if (CON_SetParameter(
+            &Local_Config,
+            Local_pName,
+            Local_u16Value) != E_OK)
     {
         CON_SendError("CMD");
         return CONSOLE_OK;
@@ -433,22 +489,35 @@ static CONSOLE_Status_t CON_HandleSet(
     if (GHSM_RequestSetConfig(
             &Local_Config) != FSM_OK)
     {
-        return CONSOLE_ERROR;
+        CON_SendError("ARG");
+        return CONSOLE_OK;
     }
 
     if (GHSM_RequestApply() != FSM_OK)
     {
-        return CONSOLE_ERROR;
+        CON_SendError("ARG");
+        return CONSOLE_OK;
     }
+
+    *g_pConfig = Local_Config;
 
     CON_SendOK();
 
     return CONSOLE_OK;
 }
 
-static void CON_HandleDefaults(void)
+
+/* ==================== DEFAULTS ==================== */
+
+static CONSOLE_Status_t CON_HandleDefaults(void)
 {
     Config_t Local_Config;
+
+    if (g_pConfig == NULL)
+    {
+        CON_SendError("ARG");
+        return CONSOLE_OK;
+    }
 
     Local_Config = *g_pConfig;
 
@@ -465,24 +534,65 @@ static void CON_HandleDefaults(void)
     Local_Config.lightOffPct = DEFAULT_LIGHT_OFF_PCT;
 
     Local_Config.tempAlarmC = DEFAULT_TEMP_ALARM_C;
-    Local_Config.soilAlarmPct =
-        DEFAULT_SOIL_ALARM_PCT;
+    Local_Config.soilAlarmPct = DEFAULT_SOIL_ALARM_PCT;
 
     if (GHSM_RequestSetConfig(
             &Local_Config) != FSM_OK)
     {
         CON_SendError("ARG");
-        return;
+        return CONSOLE_OK;
     }
 
     if (GHSM_RequestApply() != FSM_OK)
     {
         CON_SendError("ARG");
-        return;
+        return CONSOLE_OK;
     }
 
+    *g_pConfig = Local_Config;
+
     CON_SendOK();
+
+    return CONSOLE_OK;
 }
+
+
+/* ==================== MODE ==================== */
+
+static CONSOLE_Status_t CON_HandleMode(
+    const char *Copy_pCommand)
+{
+    if (strcmp(Copy_pCommand, "AUTO") == 0)
+    {
+        if (GHSM_RequestMode(ST_AUTO) != FSM_OK)
+        {
+            CON_SendError("MODE");
+            return CONSOLE_OK;
+        }
+
+        CON_SendOK();
+        return CONSOLE_OK;
+    }
+
+    if (strcmp(Copy_pCommand, "MANUAL") == 0)
+    {
+        if (GHSM_RequestMode(ST_MANUAL) != FSM_OK)
+        {
+            CON_SendError("MODE");
+            return CONSOLE_OK;
+        }
+
+        CON_SendOK();
+        return CONSOLE_OK;
+    }
+
+    CON_SendError("ARG");
+
+    return CONSOLE_OK;
+}
+
+
+/* ==================== Command Dispatcher ==================== */
 
 static CONSOLE_Status_t CON_HandleCommand(void)
 {
@@ -493,6 +603,16 @@ static CONSOLE_Status_t CON_HandleCommand(void)
             "SET TEMPON/TEMPOFF/SOILON/SOILOFF/"
             "LIGHTON/LIGHTOFF MODE AUTO/MANUAL "
             "FAN/PUMP/LAMP ON/OFF RESET DEFAULTS HELP\r\n");
+
+        return CONSOLE_OK;
+    }
+
+    if (strcmp(g_commandBuffer, "STATUS") == 0)
+    {
+        if (RPT_SendStatus() != E_OK)
+        {
+            CON_SendError("BUSY");
+        }
 
         return CONSOLE_OK;
     }
@@ -517,6 +637,12 @@ static CONSOLE_Status_t CON_HandleCommand(void)
             &g_commandBuffer[4]);
     }
 
+    if (strncmp(g_commandBuffer, "MODE ", 5U) == 0)
+    {
+        return CON_HandleMode(
+            &g_commandBuffer[5]);
+    }
+
     if ((strncmp(g_commandBuffer, "FAN ", 4U) == 0) ||
         (strncmp(g_commandBuffer, "PUMP ", 5U) == 0) ||
         (strncmp(g_commandBuffer, "LAMP ", 5U) == 0))
@@ -527,18 +653,19 @@ static CONSOLE_Status_t CON_HandleCommand(void)
 
     if (strcmp(g_commandBuffer, "DEFAULTS") == 0)
     {
-        CON_HandleDefaults();
-        return CONSOLE_OK;
+        return CON_HandleDefaults();
     }
 
     if (strcmp(g_commandBuffer, "RESET") == 0)
     {
         if (GHSM_RequestReset() != FSM_OK)
         {
-            return CONSOLE_ERROR;
+            CON_SendError("ACTIVE");
+            return CONSOLE_OK;
         }
 
         CON_SendOK();
+
         return CONSOLE_OK;
     }
 
@@ -547,14 +674,18 @@ static CONSOLE_Status_t CON_HandleCommand(void)
     return CONSOLE_OK;
 }
 
-CONSOLE_Status_t CON_Init(void)
+
+/* ==================== Public API ==================== */
+
+CONSOLE_Status_t CON_Init(Config_t *pConfig)
 {
-    g_pConfig = NULL;
+    g_pConfig = pConfig;
     g_commandLength = 0U;
     g_discardLine = 0U;
 
     return CONSOLE_OK;
 }
+
 
 CONSOLE_Status_t CON_Process(void)
 {
@@ -577,6 +708,7 @@ CONSOLE_Status_t CON_Process(void)
         {
             g_discardLine = 0U;
             g_commandLength = 0U;
+
             return CONSOLE_OK;
         }
 
@@ -586,6 +718,7 @@ CONSOLE_Status_t CON_Process(void)
         }
 
         g_commandBuffer[g_commandLength] = '\0';
+
         CON_Normalize();
 
         (void)CON_HandleCommand();
@@ -601,10 +734,12 @@ CONSOLE_Status_t CON_Process(void)
     }
 
     if (g_commandLength >=
-        CONSOLE_MAX_COMMAND_LENGTH)
+        UART_MAX_COMMAND_LENGTH)
     {
         g_discardLine = 1U;
+
         CON_SendError("LONG");
+
         return CONSOLE_OK;
     }
 

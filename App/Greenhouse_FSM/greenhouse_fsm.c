@@ -3,7 +3,6 @@
 #include "../../HAl/Buttons/Buttons_Driver.h"
 #include "../../HAl/Sensors/Sensors_Driver.h"
 #include "../../HAl/Actuators/Actuators_Driver.h"
-#include "config.h"
 
 #include <stddef.h>
 
@@ -15,11 +14,19 @@ static GreenhouseStateType g_previousState = ST_AUTO;
 static uint8 g_alarmLatched = 0U;
 static uint8 g_resetRequest = 0U;
 static uint8 g_applyRequest = 0U;
+static uint8 g_modeRequest = 0U;
+
+static GreenhouseStateType g_requestedMode = ST_AUTO;
 
 static Config_t g_pendingConfig;
 
 static uint16 g_factoryResetTicks = 0U;
 static uint8 g_alarmBeepTicks = 0U;
+
+
+/* =========================================================
+ * Alarm Condition
+ * ========================================================= */
 
 static uint8 GHSM_IsAlarmConditionActive(void)
 {
@@ -54,6 +61,11 @@ static uint8 GHSM_IsAlarmConditionActive(void)
     return 0U;
 }
 
+
+/* =========================================================
+ * Actuator Helpers
+ * ========================================================= */
+
 static void GHSM_SetAllActuatorsOff(void)
 {
     (void)ACT_Set(ACTUATOR_FAN, ACT_STATE_OFF);
@@ -63,39 +75,79 @@ static void GHSM_SetAllActuatorsOff(void)
     (void)ACT_Set(ACTUATOR_BUZZER, ACT_STATE_OFF);
 }
 
+
+static void GHSM_UpdateAlarmFan(uint8 Copy_u8TempC)
+{
+    if (Copy_u8TempC > g_pConfig->tempAlarmC)
+    {
+        (void)ACT_Set(
+            ACTUATOR_FAN,
+            ACT_STATE_ON);
+    }
+    else
+    {
+        (void)ACT_Set(
+            ACTUATOR_FAN,
+            ACT_STATE_OFF);
+    }
+}
+
+
+static void GHSM_UpdateAlarmPump(uint8 Copy_u8SoilPct)
+{
+    if (Copy_u8SoilPct < g_pConfig->soilAlarmPct)
+    {
+        (void)ACT_Set(
+            ACTUATOR_PUMP,
+            ACT_STATE_ON);
+    }
+    else
+    {
+        (void)ACT_Set(
+            ACTUATOR_PUMP,
+            ACT_STATE_OFF);
+    }
+}
+
+
 static void GHSM_ApplyAlarmOutputs(void)
 {
     uint8 Local_u8TempC;
     uint8 Local_u8SoilPct;
 
-    (void)ACT_Set(ACTUATOR_ALARM, ACT_STATE_ON);
+    (void)ACT_Set(
+        ACTUATOR_ALARM,
+        ACT_STATE_ON);
 
     if (Sensors_GetTemperature(&Local_u8TempC) == E_OK)
     {
-        if (Local_u8TempC > g_pConfig->tempAlarmC)
-        {
-            (void)ACT_Set(ACTUATOR_FAN, ACT_STATE_ON);
-        }
+        GHSM_UpdateAlarmFan(Local_u8TempC);
     }
 
     if (Sensors_GetSoil(&Local_u8SoilPct) == E_OK)
     {
-        if (Local_u8SoilPct < g_pConfig->soilAlarmPct)
-        {
-            (void)ACT_Set(ACTUATOR_PUMP, ACT_STATE_ON);
-        }
+        GHSM_UpdateAlarmPump(Local_u8SoilPct);
     }
 }
+
+
+/* =========================================================
+ * Alarm Buzzer
+ * ========================================================= */
 
 static void GHSM_UpdateBuzzer(void)
 {
     if (g_alarmBeepTicks < SCH_ALARM_ON_TICKS)
     {
-        (void)ACT_Set(ACTUATOR_BUZZER, ACT_STATE_ON);
+        (void)ACT_Set(
+            ACTUATOR_BUZZER,
+            ACT_STATE_ON);
     }
     else
     {
-        (void)ACT_Set(ACTUATOR_BUZZER, ACT_STATE_OFF);
+        (void)ACT_Set(
+            ACTUATOR_BUZZER,
+            ACT_STATE_OFF);
     }
 
     g_alarmBeepTicks++;
@@ -106,13 +158,62 @@ static void GHSM_UpdateBuzzer(void)
     }
 }
 
+
 static void GHSM_StopAlarm(void)
 {
-    (void)ACT_Set(ACTUATOR_ALARM, ACT_STATE_OFF);
-    (void)ACT_Set(ACTUATOR_BUZZER, ACT_STATE_OFF);
+    (void)ACT_Set(
+        ACTUATOR_ALARM,
+        ACT_STATE_OFF);
+
+    (void)ACT_Set(
+        ACTUATOR_BUZZER,
+        ACT_STATE_OFF);
 
     g_alarmBeepTicks = 0U;
 }
+
+
+/* =========================================================
+ * Factory Reset
+ * ========================================================= */
+
+static void GHSM_LoadDefaultConfig(void)
+{
+    g_pConfig->magic = CFG_MAGIC;
+    g_pConfig->version = CFG_VERSION;
+
+    g_pConfig->tempOnC = DEFAULT_TEMP_ON_C;
+    g_pConfig->tempOffC = DEFAULT_TEMP_OFF_C;
+
+    g_pConfig->soilOnPct = DEFAULT_SOIL_ON_PCT;
+    g_pConfig->soilOffPct = DEFAULT_SOIL_OFF_PCT;
+
+    g_pConfig->lightOnPct = DEFAULT_LIGHT_ON_PCT;
+    g_pConfig->lightOffPct = DEFAULT_LIGHT_OFF_PCT;
+
+    g_pConfig->tempAlarmC = DEFAULT_TEMP_ALARM_C;
+    g_pConfig->soilAlarmPct = DEFAULT_SOIL_ALARM_PCT;
+
+    g_pConfig->mode = DEFAULT_MODE;
+}
+
+
+static void GHSM_CompleteFactoryReset(void)
+{
+    GHSM_LoadDefaultConfig();
+
+    g_pendingConfig = *g_pConfig;
+
+    g_alarmLatched = 0U;
+    g_resetRequest = 0U;
+    g_applyRequest = 0U;
+    g_modeRequest = 0U;
+
+    GHSM_SetAllActuatorsOff();
+
+    g_currentState = ST_INIT;
+}
+
 
 static void GHSM_HandleFactoryReset(void)
 {
@@ -122,8 +223,12 @@ static void GHSM_HandleFactoryReset(void)
     Local_SaveState = BTN_RELEASED;
     Local_ResetState = BTN_RELEASED;
 
-    if ((BTN_GetState(BTN_SAVE, &Local_SaveState) != E_OK) ||
-        (BTN_GetState(BTN_RESET, &Local_ResetState) != E_OK))
+    if ((BTN_GetState(
+             BTN_SAVE,
+             &Local_SaveState) != E_OK) ||
+        (BTN_GetState(
+             BTN_RESET,
+             &Local_ResetState) != E_OK))
     {
         g_factoryResetTicks = 0U;
         return;
@@ -140,31 +245,7 @@ static void GHSM_HandleFactoryReset(void)
         if (g_factoryResetTicks >= FACTORY_RESET_TICKS)
         {
             g_factoryResetTicks = 0U;
-
-            g_pConfig->magic = CFG_MAGIC;
-            g_pConfig->version = CFG_VERSION;
-
-            g_pConfig->tempOnC = DEFAULT_TEMP_ON_C;
-            g_pConfig->tempOffC = DEFAULT_TEMP_OFF_C;
-
-            g_pConfig->soilOnPct = DEFAULT_SOIL_ON_PCT;
-            g_pConfig->soilOffPct = DEFAULT_SOIL_OFF_PCT;
-
-            g_pConfig->lightOnPct = DEFAULT_LIGHT_ON_PCT;
-            g_pConfig->lightOffPct = DEFAULT_LIGHT_OFF_PCT;
-
-            g_pConfig->tempAlarmC = DEFAULT_TEMP_ALARM_C;
-            g_pConfig->soilAlarmPct = DEFAULT_SOIL_ALARM_PCT;
-
-            g_pConfig->mode = DEFAULT_MODE;
-
-            g_alarmLatched = 0U;
-            g_resetRequest = 0U;
-            g_applyRequest = 0U;
-
-            GHSM_SetAllActuatorsOff();
-
-            g_currentState = ST_INIT;
+            GHSM_CompleteFactoryReset();
         }
     }
     else
@@ -173,44 +254,57 @@ static void GHSM_HandleFactoryReset(void)
     }
 }
 
+
+/* =========================================================
+ * State Transitions
+ * ========================================================= */
+
 static void GHSM_EnterAlarm(void)
 {
     g_previousState = g_currentState;
     g_alarmLatched = 1U;
     g_alarmBeepTicks = 0U;
+
     g_currentState = ST_ALARM;
 }
 
-static void GHSM_UpdateAuto(uint8 modePressed)
+
+static void GHSM_UpdateAuto(uint8 Copy_u8ModePressed)
 {
     if (GHSM_IsAlarmConditionActive() != 0U)
     {
         GHSM_EnterAlarm();
     }
-    else if (modePressed != 0U)
+    else if (Copy_u8ModePressed != 0U)
     {
         g_currentState = ST_MANUAL;
     }
 }
 
-static void GHSM_UpdateManual(uint8 modePressed)
+
+static void GHSM_UpdateManual(uint8 Copy_u8ModePressed)
 {
     if (GHSM_IsAlarmConditionActive() != 0U)
     {
         GHSM_EnterAlarm();
     }
-    else if (modePressed != 0U)
+    else if (Copy_u8ModePressed != 0U)
     {
         g_currentState = ST_AUTO;
     }
 }
 
-static void GHSM_UpdateAlarm(uint8 resetPressed)
+
+/* =========================================================
+ * Alarm State
+ * ========================================================= */
+
+static void GHSM_UpdateAlarm(uint8 Copy_u8ResetPressed)
 {
     GHSM_ApplyAlarmOutputs();
     GHSM_UpdateBuzzer();
 
-    if ((resetPressed != 0U) ||
+    if ((Copy_u8ResetPressed != 0U) ||
         (g_resetRequest != 0U))
     {
         if (GHSM_IsAlarmConditionActive() == 0U)
@@ -225,6 +319,11 @@ static void GHSM_UpdateAlarm(uint8 resetPressed)
     }
 }
 
+
+/* =========================================================
+ * Configuration State
+ * ========================================================= */
+
 static void GHSM_UpdateConfig(void)
 {
     if (g_applyRequest != 0U)
@@ -232,9 +331,44 @@ static void GHSM_UpdateConfig(void)
         *g_pConfig = g_pendingConfig;
 
         g_applyRequest = 0U;
+
         g_currentState = ST_AUTO;
     }
 }
+
+
+/* =========================================================
+ * Requested Mode
+ * ========================================================= */
+
+static void GHSM_ProcessModeRequest(void)
+{
+    if (g_modeRequest == 0U)
+    {
+        return;
+    }
+
+    g_modeRequest = 0U;
+
+    if (g_alarmLatched != 0U)
+    {
+        return;
+    }
+
+    if (g_requestedMode == ST_MANUAL)
+    {
+        g_currentState = ST_MANUAL;
+    }
+    else
+    {
+        g_currentState = ST_AUTO;
+    }
+}
+
+
+/* =========================================================
+ * Initialization
+ * ========================================================= */
 
 FSM_StatusType GHSM_Init(Config_t *pConfig)
 {
@@ -251,6 +385,9 @@ FSM_StatusType GHSM_Init(Config_t *pConfig)
     g_alarmLatched = 0U;
     g_resetRequest = 0U;
     g_applyRequest = 0U;
+    g_modeRequest = 0U;
+
+    g_requestedMode = ST_AUTO;
 
     g_factoryResetTicks = 0U;
     g_alarmBeepTicks = 0U;
@@ -259,6 +396,11 @@ FSM_StatusType GHSM_Init(Config_t *pConfig)
 
     return FSM_OK;
 }
+
+
+/* =========================================================
+ * Main FSM Task
+ * ========================================================= */
 
 FSM_StatusType GHSM_Update(void)
 {
@@ -285,6 +427,8 @@ FSM_StatusType GHSM_Update(void)
     {
         return FSM_ERROR;
     }
+
+    GHSM_ProcessModeRequest();
 
     switch (g_currentState)
     {
@@ -318,15 +462,26 @@ FSM_StatusType GHSM_Update(void)
     return FSM_OK;
 }
 
+
+/* =========================================================
+ * State Information
+ * ========================================================= */
+
 GreenhouseStateType GHSM_GetState(void)
 {
     return g_currentState;
 }
 
+
 uint8 GHSM_IsAlarmLatched(void)
 {
     return g_alarmLatched;
 }
+
+
+/* =========================================================
+ * Console Requests
+ * ========================================================= */
 
 FSM_StatusType GHSM_RequestReset(void)
 {
@@ -335,12 +490,14 @@ FSM_StatusType GHSM_RequestReset(void)
     return FSM_OK;
 }
 
+
 FSM_StatusType GHSM_RequestApply(void)
 {
     g_applyRequest = 1U;
 
     return FSM_OK;
 }
+
 
 FSM_StatusType GHSM_RequestSetConfig(
     const Config_t *pConfig)
@@ -353,6 +510,27 @@ FSM_StatusType GHSM_RequestSetConfig(
 
     g_pendingConfig = *pConfig;
     g_currentState = ST_CONFIG;
+
+    return FSM_OK;
+}
+
+
+FSM_StatusType GHSM_RequestMode(
+    GreenhouseStateType Copy_enState)
+{
+    if ((Copy_enState != ST_AUTO) &&
+        (Copy_enState != ST_MANUAL))
+    {
+        return FSM_ERROR;
+    }
+
+    if (g_alarmLatched != 0U)
+    {
+        return FSM_ERROR;
+    }
+
+    g_requestedMode = Copy_enState;
+    g_modeRequest = 1U;
 
     return FSM_OK;
 }
