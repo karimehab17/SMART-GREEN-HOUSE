@@ -1,242 +1,151 @@
-#include "STD_TYPES.h"
 #include "config.h"
-#include <stddef.h>
-
-/* ==================== Application ==================== */
 
 #include "scheduler.h"
-#include "greenhouse_fsm.h"
 #include "control.h"
-#include "console.h"
+#include "greenhouse_fsm.h"
 #include "report.h"
+#include "console.h"
 
-/* ==================== HAL ==================== */
-
-#include "Sensors_Driver.h"
-#include "Actuators_Driver.h"
 #include "Buttons_Driver.h"
 #include "lcd_i2c.h"
+#include "Sensors_Driver.h"
+#include "Actuators_Driver.h"
 
-/* ==================== MCAL ==================== */
-
-#include "TIMER_interface.h"
 #include "UART_interface.h"
+#include "TIMER_interface.h"
+#include "INTERRUPT_interface.h"
 
-#include <avr/interrupt.h>
 
-/* =========================================================
- *                    Scheduler Tasks
- * ========================================================= */
+static Config_t g_config;
+static SysData_t g_sysData;
 
-static void APP_ButtonsTask(void)
+
+static void Task_Buttons(void)
 {
     (void)BTN_Poll();
 }
 
-static void APP_FsmTask(void)
-{
-    (void)GHSM_Update();
-}
-
-static void APP_SensorsTask(void)
+static void Task_Sensors(void)
 {
     (void)Sensors_Update();
 }
 
-static void APP_ControlTask(void)
+static void Task_Control(void)
 {
-    /*
-     * Control is executed only in AUTO mode.
-     * FSM remains responsible for state transitions
-     * and alarm handling.
-     */
+    (void)CTRL_Update();
+}
+
+static void Task_FSM(void)
+{
+    (void)GHSM_Update();
+}
+
+static void Task_LCD(void)
+{
+    uint8 temp;
+    uint8 soil;
+    uint8 light;
+
+    Sensors_GetTemperature(&temp);
+    Sensors_GetSoil(&soil);
+    Sensors_GetLight(&light);
+
+    LCD_Clear();
+
+    LCD_Goto(0U, 0U);
+    LCD_Print("T:");
+    LCD_PrintNum(temp);
+    LCD_Print("C S:");
+    LCD_PrintNum(soil);
+    LCD_Print("%");
+
+    LCD_Goto(1U, 0U);
+    LCD_Print("L:");
+    LCD_PrintNum(light);
+    LCD_Print("% M:");
+
     if (GHSM_GetState() == ST_AUTO)
-    {
-        (void)CTRL_UpdateThermal();
-        (void)CTRL_UpdateIrrigation();
-        (void)CTRL_UpdatePhoto();
-    }
+        LCD_Print("AUTO");
+    else if (GHSM_GetState() == ST_MANUAL)
+        LCD_Print("MANUAL");
+    else if (GHSM_GetState() == ST_ALARM)
+        LCD_Print("ALARM");
+    else
+        LCD_Print("CONFIG");
 }
 
-static void APP_LcdTask(void)
+static void Task_Report(void)
 {
-    /*
-     * LCD presentation is delegated to the LCD/HAL layer
-     * through its public API.
-     *
-     * Detailed screen management should not live in main().
-     */
-}
-
-static void APP_ReportTask(void)
-{
-    /*
-     * Reporting is owned by the Report application module.
-     */
     (void)RPT_Update();
 }
 
-static void APP_ConsoleTask(void)
+static void Task_Console(void)
 {
-    /*
-     * UART command processing is owned by Console.
-     */
     (void)CON_Process();
 }
 
-/* =========================================================
- *                  Hardware Initialization
- * ========================================================= */
-
-static void APP_InitHardware(void)
-{
-    (void)ACT_Init();
-
-    (void)BTN_Init();
-
-    (void)Sensors_Init();
-
-    (void)UART_Init(UART_BAUD_RATE);
-
-    LCD_Init();
-}
-
-/* =========================================================
- *                 Application Initialization
- * ========================================================= */
-
-static void APP_InitApplication(void)
-{
-    /*
-     * Configuration is owned by config.h and Config_t.
-     * Runtime configuration loading/default handling
-     * is owned by the FSM/configuration logic.
-     */
-
-    (void)GHSM_Init(NULL);
-
-    (void)CTRL_Init(NULL);
-
-    (void)RPT_Init(NULL);
-
-    (void)CON_Init(NULL);
-}
-
-/* =========================================================
- *                    Scheduler Configuration
- * ========================================================= */
-
-static void APP_CreateTasks(void)
-{
-    (void)SCH_CreateTask(
-        SCH_TASK_BUTTONS,
-        APP_ButtonsTask,
-        SCH_BUTTONS_PERIOD_MS
-    );
-
-    (void)SCH_CreateTask(
-        SCH_TASK_FSM,
-        APP_FsmTask,
-        SCH_FSM_PERIOD_MS
-    );
-
-    (void)SCH_CreateTask(
-        SCH_TASK_SENSORS,
-        APP_SensorsTask,
-        SCH_SENSORS_PERIOD_MS
-    );
-
-    (void)SCH_CreateTask(
-        SCH_TASK_CONTROL,
-        APP_ControlTask,
-        SCH_CONTROL_PERIOD_MS
-    );
-
-    (void)SCH_CreateTask(
-        SCH_TASK_LCD,
-        APP_LcdTask,
-        SCH_LCD_PERIOD_MS
-    );
-
-    (void)SCH_CreateTask(
-        SCH_TASK_REPORT,
-        APP_ReportTask,
-        SCH_REPORT_PERIOD_MS
-    );
-
-    (void)SCH_CreateTask(
-        SCH_TASK_CONSOLE,
-        APP_ConsoleTask,
-        SCH_CONSOLE_PERIOD_MS
-    );
-}
-
-/* =========================================================
- *                     Timer0 Configuration
- * ========================================================= */
-
-static void APP_InitSchedulerTimer(void)
-{
-    /*
-     * Timer0 configuration belongs to the scheduler/timer
-     * integration layer.
-     */
-    (void)TIMER0_Init(TIMER0_CTC);
-
-    (void)TIMER0_SetCompareValue(77U);
-
-    (void)TIMER0_SetCompareInterrupt(
-        TIMER_INTERRUPT_ENABLE
-    );
-
-    (void)TIMER0_Start(
-        TIMER0_PRESC_1024
-    );
-}
-
-/* =========================================================
- *                           MAIN
- * ========================================================= */
 
 int main(void)
 {
-    APP_InitHardware();
+    UART_Init(UART_BAUD_RATE);
+    BTN_Init();
+    LCD_Init();
 
-    (void)SCH_Init();
+    GHSM_Init(&g_config);
+    CTRL_Init(&g_config);
+    RPT_Init(&g_sysData);
+    CON_Init(&g_config);
 
-    /*
-     * Application initialization.
-     */
-    /*
-     * NOTE:
-     * GHSM_Init / CTRL_Init / RPT_Init / CON_Init currently
-     * require runtime pointers in their existing APIs.
-     * These dependencies must be resolved by the application
-     * modules before final integration.
-     */
+    SCH_Init();
 
-    APP_CreateTasks();
+    SCH_CreateTask(
+        SCH_TASK_BUTTONS,
+        Task_Buttons,
+        SCH_BUTTONS_PERIOD_MS);
 
-    APP_InitSchedulerTimer();
+    SCH_CreateTask(
+        SCH_TASK_SENSORS,
+        Task_Sensors,
+        SCH_SENSORS_PERIOD_MS);
 
-    (void)UART_SetRxInterrupt(
-        UART_INTERRUPT_ENABLE
-    );
+    SCH_CreateTask(
+        SCH_TASK_CONTROL,
+        Task_Control,
+        SCH_CONTROL_PERIOD_MS);
 
-    /*
-     * Enable global interrupts only after all peripheral
-     * and scheduler configuration is complete.
-     */
-    sei();
+    SCH_CreateTask(
+        SCH_TASK_FSM,
+        Task_FSM,
+        SCH_FSM_PERIOD_MS);
 
-    /*
-     * Cooperative super loop.
-     * No blocking work is performed here.
-     */
+    SCH_CreateTask(
+        SCH_TASK_LCD,
+        Task_LCD,
+        SCH_LCD_PERIOD_MS);
+
+    SCH_CreateTask(
+        SCH_TASK_REPORT,
+        Task_Report,
+        SCH_REPORT_PERIOD_MS);
+
+    SCH_CreateTask(
+        SCH_TASK_CONSOLE,
+        Task_Console,
+        SCH_CONSOLE_PERIOD_MS);
+
+    TIMER0_Init(TIMER0_CTC);
+    TIMER0_SetCompareValue(77U);
+    TIMER0_SetCompareInterrupt(
+        TIMER_INTERRUPT_ENABLE);
+    TIMER0_Start(TIMER0_PRESC_1024);
+
+    UART_SetRxInterrupt(
+        UART_INTERRUPT_ENABLE);
+
+    INTERRUPT_EnableGlobal();
+
     while (1)
     {
         SCH_Run();
     }
-
-    return 0;
 }

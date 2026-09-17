@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+
 static Config_t *g_pConfig = NULL;
 
 static GreenhouseStateType g_currentState = ST_INIT;
@@ -69,11 +70,25 @@ static uint8 GHSM_IsAlarmConditionActive(void)
 
 static void GHSM_SetAllActuatorsOff(void)
 {
-    (void)ACT_Set(ACTUATOR_FAN, ACT_STATE_OFF);
-    (void)ACT_Set(ACTUATOR_PUMP, ACT_STATE_OFF);
-    (void)ACT_Set(ACTUATOR_LAMP, ACT_STATE_OFF);
-    (void)ACT_Set(ACTUATOR_ALARM, ACT_STATE_OFF);
-    (void)ACT_Set(ACTUATOR_BUZZER, ACT_STATE_OFF);
+    (void)ACT_Set(
+        ACTUATOR_FAN,
+        ACT_STATE_OFF);
+
+    (void)ACT_Set(
+        ACTUATOR_PUMP,
+        ACT_STATE_OFF);
+
+    (void)ACT_Set(
+        ACTUATOR_LAMP,
+        ACT_STATE_OFF);
+
+    (void)ACT_Set(
+        ACTUATOR_ALARM,
+        ACT_STATE_OFF);
+
+    (void)ACT_Set(
+        ACTUATOR_BUZZER,
+        ACT_STATE_OFF);
 }
 
 
@@ -246,6 +261,7 @@ static void GHSM_HandleFactoryReset(void)
         if (g_factoryResetTicks >= FACTORY_RESET_TICKS)
         {
             g_factoryResetTicks = 0U;
+
             GHSM_CompleteFactoryReset();
         }
     }
@@ -257,39 +273,80 @@ static void GHSM_HandleFactoryReset(void)
 
 
 /* =========================================================
- * State Transitions
+ * Alarm Logic
  * ========================================================= */
 
 static void GHSM_EnterAlarm(void)
 {
-    g_previousState = g_currentState;
-    g_alarmLatched = 1U;
-    g_alarmBeepTicks = 0U;
-
-    g_currentState = ST_ALARM;
+    if (g_alarmLatched == 0U)
+    {
+        g_alarmLatched = 1U;
+        g_alarmBeepTicks = 0U;
+    }
 }
 
 
-static void GHSM_UpdateAuto(uint8 Copy_u8ModePressed)
+static void GHSM_UpdateAlarmLogic(
+    uint8 Copy_u8ResetPressed)
 {
-    if (GHSM_IsAlarmConditionActive() != 0U)
+    uint8 Local_u8AlarmActive;
+
+    Local_u8AlarmActive =
+        GHSM_IsAlarmConditionActive();
+
+    if (Local_u8AlarmActive != 0U)
     {
         GHSM_EnterAlarm();
     }
-    else if (Copy_u8ModePressed != 0U)
+
+    if (g_alarmLatched != 0U)
+    {
+        GHSM_ApplyAlarmOutputs();
+        GHSM_UpdateBuzzer();
+
+        if (((Copy_u8ResetPressed != 0U) ||
+             (g_resetRequest != 0U)) &&
+            (Local_u8AlarmActive == 0U))
+        {
+            g_alarmLatched = 0U;
+            g_resetRequest = 0U;
+
+            GHSM_StopAlarm();
+        }
+    }
+}
+
+
+/* =========================================================
+ * AUTO State
+ * ========================================================= */
+
+static void GHSM_UpdateAuto(
+    uint8 Copy_u8ModePressed,
+    uint8 Copy_u8ResetPressed)
+{
+    GHSM_UpdateAlarmLogic(
+        Copy_u8ResetPressed);
+
+    if (Copy_u8ModePressed != 0U)
     {
         g_currentState = ST_MANUAL;
     }
 }
 
 
-static void GHSM_UpdateManual(uint8 Copy_u8ModePressed)
+/* =========================================================
+ * MANUAL State
+ * ========================================================= */
+
+static void GHSM_UpdateManual(
+    uint8 Copy_u8ModePressed,
+    uint8 Copy_u8ResetPressed)
 {
-    if (GHSM_IsAlarmConditionActive() != 0U)
-    {
-        GHSM_EnterAlarm();
-    }
-    else if (Copy_u8ModePressed != 0U)
+    GHSM_UpdateAlarmLogic(
+        Copy_u8ResetPressed);
+
+    if (Copy_u8ModePressed != 0U)
     {
         g_currentState = ST_AUTO;
     }
@@ -297,27 +354,14 @@ static void GHSM_UpdateManual(uint8 Copy_u8ModePressed)
 
 
 /* =========================================================
- * Alarm State
+ * Legacy Alarm State
  * ========================================================= */
 
-static void GHSM_UpdateAlarm(uint8 Copy_u8ResetPressed)
+static void GHSM_UpdateAlarm(
+    uint8 Copy_u8ResetPressed)
 {
-    GHSM_ApplyAlarmOutputs();
-    GHSM_UpdateBuzzer();
-
-    if ((Copy_u8ResetPressed != 0U) ||
-        (g_resetRequest != 0U))
-    {
-        if (GHSM_IsAlarmConditionActive() == 0U)
-        {
-            g_alarmLatched = 0U;
-            g_resetRequest = 0U;
-
-            GHSM_StopAlarm();
-
-            g_currentState = g_previousState;
-        }
-    }
+    GHSM_UpdateAlarmLogic(
+        Copy_u8ResetPressed);
 }
 
 
@@ -351,11 +395,6 @@ static void GHSM_ProcessModeRequest(void)
 
     g_modeRequest = 0U;
 
-    if (g_alarmLatched != 0U)
-    {
-        return;
-    }
-
     if (g_requestedMode == ST_MANUAL)
     {
         g_currentState = ST_MANUAL;
@@ -365,6 +404,7 @@ static void GHSM_ProcessModeRequest(void)
         g_currentState = ST_AUTO;
     }
 }
+
 
 /* =========================================================
  * Configuration Checksum
@@ -389,11 +429,15 @@ static uint8 GHSM_CalculateChecksum(
          Local_u8Index++)
     {
         Local_u8Checksum =
-            (uint8)(Local_u8Checksum + pData[Local_u8Index]);
-    }
+            (uint8)(
+                Local_u8Checksum +
+                pData[Local_u8Index]);
+
+        }
 
     return (uint8)(0U - Local_u8Checksum);
 }
+
 
 /* =========================================================
  * EEPROM Save
@@ -414,11 +458,13 @@ FSM_StatusType GHSM_SaveConfig(void)
     Local_Config.version = CFG_VERSION;
 
     Local_Config.checksum =
-        GHSM_CalculateChecksum(&Local_Config);
+        GHSM_CalculateChecksum(
+            &Local_Config);
 
     eeprom_update_block(
         &Local_Config,
-        (void *)(uintptr_t)EEPROM_CONFIG_ADDRESS,
+        (void *)(uintptr_t)
+            EEPROM_CONFIG_ADDRESS,
         sizeof(Config_t));
 
     *g_pConfig = Local_Config;
@@ -426,11 +472,54 @@ FSM_StatusType GHSM_SaveConfig(void)
     return FSM_OK;
 }
 
+
+/* =========================================================
+ * EEPROM Load
+ * ========================================================= */
+
+static uint8 GHSM_IsConfigValid(
+    const Config_t *pConfig)
+{
+    if ((pConfig->magic != CFG_MAGIC) ||
+        (pConfig->version != CFG_VERSION))
+    {
+        return 0U;
+    }
+
+    return (uint8)(
+        pConfig->checksum ==
+        GHSM_CalculateChecksum(pConfig));
+}
+
+
+static void GHSM_LoadConfigFromEEPROM(void)
+{
+    Config_t Local_Config;
+
+    eeprom_read_block(
+        &Local_Config,
+        (const void *)(uintptr_t)
+            EEPROM_CONFIG_ADDRESS,
+        sizeof(Config_t));
+
+    if (GHSM_IsConfigValid(
+            &Local_Config) != 0U)
+    {
+        *g_pConfig = Local_Config;
+    }
+    else
+    {
+        GHSM_LoadDefaultConfig();
+    }
+}
+
+
 /* =========================================================
  * Initialization
  * ========================================================= */
 
-FSM_StatusType GHSM_Init(Config_t *pConfig)
+FSM_StatusType GHSM_Init(
+    Config_t *pConfig)
 {
     if (pConfig == NULL)
     {
@@ -452,7 +541,9 @@ FSM_StatusType GHSM_Init(Config_t *pConfig)
     g_factoryResetTicks = 0U;
     g_alarmBeepTicks = 0U;
 
-    g_pendingConfig = *pConfig;
+    GHSM_LoadConfigFromEEPROM();
+
+    g_pendingConfig = *g_pConfig;
 
     return FSM_OK;
 }
@@ -493,29 +584,53 @@ FSM_StatusType GHSM_Update(void)
     switch (g_currentState)
     {
         case ST_INIT:
+
             GHSM_SetAllActuatorsOff();
+
             g_alarmLatched = 0U;
+
             g_currentState = ST_AUTO;
+
             break;
+
 
         case ST_AUTO:
-            GHSM_UpdateAuto(Local_u8ModePressed);
+
+            GHSM_UpdateAuto(
+                Local_u8ModePressed,
+                Local_u8ResetPressed);
+
             break;
+
 
         case ST_MANUAL:
-            GHSM_UpdateManual(Local_u8ModePressed);
+
+            GHSM_UpdateManual(
+                Local_u8ModePressed,
+                Local_u8ResetPressed);
+
             break;
+
 
         case ST_ALARM:
-            GHSM_UpdateAlarm(Local_u8ResetPressed);
+
+            GHSM_UpdateAlarm(
+                Local_u8ResetPressed);
+
             break;
+
 
         case ST_CONFIG:
+
             GHSM_UpdateConfig();
+
             break;
 
+
         default:
+
             g_currentState = ST_INIT;
+
             break;
     }
 
@@ -569,6 +684,7 @@ FSM_StatusType GHSM_RequestSetConfig(
     }
 
     g_pendingConfig = *pConfig;
+
     g_currentState = ST_CONFIG;
 
     return FSM_OK;
@@ -580,11 +696,6 @@ FSM_StatusType GHSM_RequestMode(
 {
     if ((Copy_enState != ST_AUTO) &&
         (Copy_enState != ST_MANUAL))
-    {
-        return FSM_ERROR;
-    }
-
-    if (g_alarmLatched != 0U)
     {
         return FSM_ERROR;
     }

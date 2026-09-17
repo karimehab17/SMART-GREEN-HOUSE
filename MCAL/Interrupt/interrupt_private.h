@@ -42,6 +42,6 @@
 #define INTERRUPT_INTF0_BIT    6U
 #define INTERRUPT_INTF1_BIT    7U
 
-volatile uint8_t g_tickFlag = 0;
+volatile uint8 g_tickFlag = 0;
 
 #endif /* INTERRUPT_PRIVATE_H */

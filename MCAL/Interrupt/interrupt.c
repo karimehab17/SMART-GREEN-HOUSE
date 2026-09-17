@@ -23,8 +23,6 @@ EXTI_CallbackType EXTI_pfCallBackArr[3] =
  *                    Timer0 Scheduler Tick
  * ========================================================= */
 
-volatile uint8 g_tickFlag = 0U;
-
 void INTERRUPT_Timer0CompareCallback(void)
 {
     g_tickFlag = 1U;
