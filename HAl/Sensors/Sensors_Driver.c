@@ -16,7 +16,12 @@ static uint8 g_lightPct = 0U;
 
 static uint8 g_sensorFaultTicks[3] = {0U, 0U, 0U};
 static uint8 g_sensorFault[3] = {0U, 0U, 0U};
+static uint8 g_sensorDataReady = 0U;
 
+
+/* =========================================================
+ * Median Filter
+ * ========================================================= */
 
 static uint16 Sensors_Median3(
     uint16 a,
@@ -52,6 +57,10 @@ static uint16 Sensors_Median3(
 }
 
 
+/* =========================================================
+ * ADC Filtered Read
+ * ========================================================= */
+
 static STD_ReturnType Sensors_ReadFilteredChannel(
     uint8 channel,
     uint16 *result)
@@ -80,15 +89,24 @@ static STD_ReturnType Sensors_ReadFilteredChannel(
         return E_NOK;
     }
 
-    *result = Sensors_Median3(sample1, sample2, sample3);
+    *result = Sensors_Median3(
+        sample1,
+        sample2,
+        sample3);
 
     return E_OK;
 }
 
 
+/* =========================================================
+ * Sensor Fault
+ * ========================================================= */
+
 static uint8 Sensors_IsInvalidRaw(uint16 raw)
 {
-    return (uint8)((raw == 0U) || (raw >= ADC_MAX_VALUE));
+    return (uint8)(
+        (raw == 0U) ||
+        (raw >= ADC_MAX_VALUE));
 }
 
 
@@ -138,11 +156,23 @@ static void Sensors_UpdateFaults(
     uint16 soilRaw,
     uint16 lightRaw)
 {
-    Sensors_UpdateFault(SEN_TEMP, tempRaw);
-    Sensors_UpdateFault(SEN_SOIL, soilRaw);
-    Sensors_UpdateFault(SEN_LIGHT, lightRaw);
+    Sensors_UpdateFault(
+        SEN_TEMP,
+        tempRaw);
+
+    Sensors_UpdateFault(
+        SEN_SOIL,
+        soilRaw);
+
+    Sensors_UpdateFault(
+        SEN_LIGHT,
+        lightRaw);
 }
 
+
+/* =========================================================
+ * Public Sensor Status
+ * ========================================================= */
 
 uint8 Sensors_HasSensorFault(void)
 {
@@ -152,6 +182,16 @@ uint8 Sensors_HasSensorFault(void)
         (g_sensorFault[SEN_LIGHT] != 0U));
 }
 
+
+uint8 Sensors_IsReady(void)
+{
+    return g_sensorDataReady;
+}
+
+
+/* =========================================================
+ * Initialization
+ * ========================================================= */
 
 STD_ReturnType Sensors_Init(void)
 {
@@ -171,11 +211,17 @@ STD_ReturnType Sensors_Init(void)
     g_sensorFault[SEN_SOIL] = 0U;
     g_sensorFault[SEN_LIGHT] = 0U;
 
+    g_sensorDataReady = 0U;
+
     return ADC_Init(
         SENSOR_ADC_REFERENCE,
         SENSOR_ADC_PRESCALER);
 }
 
+
+/* =========================================================
+ * Sensor Update
+ * ========================================================= */
 
 STD_ReturnType Sensors_Update(void)
 {
@@ -234,9 +280,15 @@ STD_ReturnType Sensors_Update(void)
     g_soilRaw = soilRaw;
     g_lightRaw = lightRaw;
 
+    g_sensorDataReady = 1U;
+
     return E_OK;
 }
 
+
+/* =========================================================
+ * Raw Read
+ * ========================================================= */
 
 STD_ReturnType Sensors_ReadRaw(
     uint16 *tempRaw,
@@ -258,6 +310,10 @@ STD_ReturnType Sensors_ReadRaw(
 }
 
 
+/* =========================================================
+ * Temperature
+ * ========================================================= */
+
 STD_ReturnType Sensors_GetTemperature(
     uint8 *tempC)
 {
@@ -271,6 +327,10 @@ STD_ReturnType Sensors_GetTemperature(
     return E_OK;
 }
 
+
+/* =========================================================
+ * Soil
+ * ========================================================= */
 
 STD_ReturnType Sensors_GetSoil(
     uint8 *soilPct)
@@ -286,6 +346,10 @@ STD_ReturnType Sensors_GetSoil(
 }
 
 
+/* =========================================================
+ * Light
+ * ========================================================= */
+
 STD_ReturnType Sensors_GetLight(
     uint8 *lightPct)
 {
@@ -299,6 +363,10 @@ STD_ReturnType Sensors_GetLight(
     return E_OK;
 }
 
+
+/* =========================================================
+ * Temperature Scaling
+ * ========================================================= */
 
 STD_ReturnType Sensors_ScaleTempC(
     uint16 raw,
@@ -319,6 +387,10 @@ STD_ReturnType Sensors_ScaleTempC(
     return E_OK;
 }
 
+
+/* =========================================================
+ * Percentage Scaling
+ * ========================================================= */
 
 STD_ReturnType Sensors_ScalePct(
     uint16 raw,

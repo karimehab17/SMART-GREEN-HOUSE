@@ -13,11 +13,18 @@ STD_ReturnType Sensors_ReadRaw(
     uint16 *soilRaw,
     uint16 *lightRaw);
 
-STD_ReturnType Sensors_GetTemperature(uint8 *tempC);
-STD_ReturnType Sensors_GetSoil(uint8 *soilPct);
-STD_ReturnType Sensors_GetLight(uint8 *lightPct);
+STD_ReturnType Sensors_GetTemperature(
+    uint8 *tempC);
+
+STD_ReturnType Sensors_GetSoil(
+    uint8 *soilPct);
+
+STD_ReturnType Sensors_GetLight(
+    uint8 *lightPct);
 
 uint8 Sensors_HasSensorFault(void);
+
+uint8 Sensors_IsReady(void);
 
 STD_ReturnType Sensors_ScaleTempC(
     uint16 raw,

@@ -35,6 +35,11 @@ static uint8 GHSM_IsAlarmConditionActive(void)
     uint8 Local_u8TempC;
     uint8 Local_u8SoilPct;
 
+    if (Sensors_IsReady() == 0U)
+    {
+        return 0U;
+    }
+
     if (g_pConfig == NULL)
     {
         return 0U;
@@ -62,7 +67,6 @@ static uint8 GHSM_IsAlarmConditionActive(void)
 
     return 0U;
 }
-
 
 /* =========================================================
  * Actuator Helpers
