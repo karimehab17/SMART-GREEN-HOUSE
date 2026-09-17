@@ -3,6 +3,7 @@
 #include "../../HAl/Buttons/Buttons_Driver.h"
 #include "../../HAl/Sensors/Sensors_Driver.h"
 #include "../../HAl/Actuators/Actuators_Driver.h"
+#include <avr/eeprom.h>
 
 #include <stddef.h>
 
@@ -365,6 +366,65 @@ static void GHSM_ProcessModeRequest(void)
     }
 }
 
+/* =========================================================
+ * Configuration Checksum
+ * ========================================================= */
+
+static uint8 GHSM_CalculateChecksum(
+    const Config_t *pConfig)
+{
+    const uint8 *pData;
+    uint8 Local_u8Checksum = 0U;
+    uint8 Local_u8Index;
+
+    if (pConfig == NULL)
+    {
+        return 0U;
+    }
+
+    pData = (const uint8 *)pConfig;
+
+    for (Local_u8Index = 0U;
+         Local_u8Index < (uint8)(sizeof(Config_t) - 1U);
+         Local_u8Index++)
+    {
+        Local_u8Checksum =
+            (uint8)(Local_u8Checksum + pData[Local_u8Index]);
+    }
+
+    return (uint8)(0U - Local_u8Checksum);
+}
+
+/* =========================================================
+ * EEPROM Save
+ * ========================================================= */
+
+FSM_StatusType GHSM_SaveConfig(void)
+{
+    Config_t Local_Config;
+
+    if (g_pConfig == NULL)
+    {
+        return FSM_ERROR;
+    }
+
+    Local_Config = *g_pConfig;
+
+    Local_Config.magic = CFG_MAGIC;
+    Local_Config.version = CFG_VERSION;
+
+    Local_Config.checksum =
+        GHSM_CalculateChecksum(&Local_Config);
+
+    eeprom_update_block(
+        &Local_Config,
+        (void *)(uintptr_t)EEPROM_CONFIG_ADDRESS,
+        sizeof(Config_t));
+
+    *g_pConfig = Local_Config;
+
+    return FSM_OK;
+}
 
 /* =========================================================
  * Initialization

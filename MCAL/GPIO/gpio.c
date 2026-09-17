@@ -6,7 +6,7 @@
 
 
 /* =========================================================
- *                  Private Helper Functions
+ *                    Private Helper Functions
  * ========================================================= */
 
 static STD_ReturnType GPIO_IsValidPort(uint8 Copy_u8Port)
@@ -98,10 +98,13 @@ static volatile uint8* GPIO_GetPINRegister(uint8 Copy_u8Port)
 
 
 /* =========================================================
- *                  Pin Direction
+ *                       Pin Direction
  * ========================================================= */
 
-STD_ReturnType GPIO_SetPinDirection(uint8 Copy_u8Port,uint8 Copy_u8Pin,uint8 Copy_u8Direction)
+STD_ReturnType GPIO_SetPinDirection(
+    uint8 Copy_u8Port,
+    uint8 Copy_u8Pin,
+    uint8 Copy_u8Direction)
 {
     volatile uint8* Local_pu8DDR;
     volatile uint8* Local_pu8PORT;
@@ -128,11 +131,13 @@ STD_ReturnType GPIO_SetPinDirection(uint8 Copy_u8Port,uint8 Copy_u8Pin,uint8 Cop
 
             break;
 
+
         case GPIO_OUTPUT:
 
             SET_BIT(*Local_pu8DDR, Copy_u8Pin);
 
             break;
+
 
         case GPIO_INPUT_PULLUP:
 
@@ -140,6 +145,7 @@ STD_ReturnType GPIO_SetPinDirection(uint8 Copy_u8Port,uint8 Copy_u8Pin,uint8 Cop
             SET_BIT(*Local_pu8PORT, Copy_u8Pin);
 
             break;
+
 
         default:
 
@@ -151,10 +157,13 @@ STD_ReturnType GPIO_SetPinDirection(uint8 Copy_u8Port,uint8 Copy_u8Pin,uint8 Cop
 
 
 /* =========================================================
- *                     Pin Value
+ *                         Pin Value
  * ========================================================= */
 
-STD_ReturnType GPIO_SetPinValue(uint8 Copy_u8Port,uint8 Copy_u8Pin,uint8 Copy_u8Value)
+STD_ReturnType GPIO_SetPinValue(
+    uint8 Copy_u8Port,
+    uint8 Copy_u8Pin,
+    uint8 Copy_u8Value)
 {
     volatile uint8* Local_pu8PORT;
 
@@ -188,7 +197,14 @@ STD_ReturnType GPIO_SetPinValue(uint8 Copy_u8Port,uint8 Copy_u8Pin,uint8 Copy_u8
 }
 
 
-STD_ReturnType GPIO_GetPinValue(uint8 Copy_u8Port,uint8 Copy_u8Pin, uint8* Copy_pu8Value)
+/* =========================================================
+ *                       Get Pin Value
+ * ========================================================= */
+
+STD_ReturnType GPIO_GetPinValue(
+    uint8 Copy_u8Port,
+    uint8 Copy_u8Pin,
+    uint8* Copy_pu8Value)
 {
     volatile uint8* Local_pu8PIN;
 
@@ -215,7 +231,13 @@ STD_ReturnType GPIO_GetPinValue(uint8 Copy_u8Port,uint8 Copy_u8Pin, uint8* Copy_
 }
 
 
-STD_ReturnType GPIO_TogglePinValue(uint8 Copy_u8Port,uint8 Copy_u8Pin)
+/* =========================================================
+ *                     Toggle Pin Value
+ * ========================================================= */
+
+STD_ReturnType GPIO_TogglePinValue(
+    uint8 Copy_u8Port,
+    uint8 Copy_u8Pin)
 {
     volatile uint8* Local_pu8PORT;
 
@@ -241,7 +263,9 @@ STD_ReturnType GPIO_TogglePinValue(uint8 Copy_u8Port,uint8 Copy_u8Pin)
  *                     Port Direction
  * ========================================================= */
 
-STD_ReturnType GPIO_SetPortDirection(uint8 Copy_u8Port,uint8 Copy_u8Direction)
+STD_ReturnType GPIO_SetPortDirection(
+    uint8 Copy_u8Port,
+    uint8 Copy_u8Direction)
 {
     volatile uint8* Local_pu8DDR;
 
@@ -260,11 +284,13 @@ STD_ReturnType GPIO_SetPortDirection(uint8 Copy_u8Port,uint8 Copy_u8Direction)
 
             break;
 
+
         case GPIO_OUTPUT:
 
             *Local_pu8DDR = 0xFFU;
 
             break;
+
 
         default:
 
@@ -279,7 +305,9 @@ STD_ReturnType GPIO_SetPortDirection(uint8 Copy_u8Port,uint8 Copy_u8Direction)
  *                       Port Value
  * ========================================================= */
 
-STD_ReturnType GPIO_SetPortValue(uint8 Copy_u8Port,uint8 Copy_u8Value)
+STD_ReturnType GPIO_SetPortValue(
+    uint8 Copy_u8Port,
+    uint8 Copy_u8Value)
 {
     volatile uint8* Local_pu8PORT;
 
@@ -296,7 +324,13 @@ STD_ReturnType GPIO_SetPortValue(uint8 Copy_u8Port,uint8 Copy_u8Value)
 }
 
 
-STD_ReturnType GPIO_GetPortValue(uint8 Copy_u8Port,uint8* Copy_pu8Value)
+/* =========================================================
+ *                    Get Port Value
+ * ========================================================= */
+
+STD_ReturnType GPIO_GetPortValue(
+    uint8 Copy_u8Port,
+    uint8* Copy_pu8Value)
 {
     volatile uint8* Local_pu8PIN;
 

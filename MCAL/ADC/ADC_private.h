@@ -1,7 +1,12 @@
 #ifndef ADC_PRIVATE_H
 #define ADC_PRIVATE_H
 
-/* ==================== ADC Registers ==================== */
+#include "../../LIB/STD_TYPES.h"
+
+
+/* =========================================================
+ *                     ADC Registers
+ * ========================================================= */
 
 #define ADC_ADMUX_REG      (*(volatile uint8*)0x27U)
 #define ADC_ADCSRA_REG     (*(volatile uint8*)0x26U)
@@ -10,7 +15,9 @@
 #define ADC_SFIOR_REG      (*(volatile uint8*)0x50U)
 
 
-/* ==================== ADMUX Bits ==================== */
+/* =========================================================
+ *                       ADMUX Bits
+ * ========================================================= */
 
 #define ADC_MUX0_BIT       0U
 #define ADC_MUX1_BIT       1U
@@ -24,7 +31,9 @@
 #define ADC_REFS1_BIT      7U
 
 
-/* ==================== ADCSRA Bits ==================== */
+/* =========================================================
+ *                      ADCSRA Bits
+ * ========================================================= */
 
 #define ADC_ADPS0_BIT      0U
 #define ADC_ADPS1_BIT      1U
@@ -37,15 +46,20 @@
 #define ADC_ADEN_BIT       7U
 
 
-/* ==================== SFIOR Bits ==================== */
+/* =========================================================
+ *                       SFIOR Bits
+ * ========================================================= */
 
 #define ADC_ADTS0_BIT      5U
 #define ADC_ADTS1_BIT      6U
 #define ADC_ADTS2_BIT      7U
 
 
-/* ==================== Configuration ==================== */
+/* =========================================================
+ *                  Internal ADC Constants
+ * ========================================================= */
 
 #define ADC_NUMBER_OF_CHANNELS    8U
+
 
 #endif /* ADC_PRIVATE_H */

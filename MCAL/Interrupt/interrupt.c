@@ -1,5 +1,5 @@
 #include "../../LIB/STD_TYPES.h"
-#include "../../LIB/Math.h"
+#include "Math.h"
 
 #include "../Scheduler_module/scheduler.h"
 #include "INTERRUPT_interface.h"
@@ -7,7 +7,6 @@
 
 #include <stddef.h>
 #include <avr/interrupt.h>
-
 
 /* =========================================================
  *                     Callback Storage
@@ -20,19 +19,16 @@ EXTI_CallbackType EXTI_pfCallBackArr[3] =
     NULL
 };
 
-
 /* =========================================================
  *                    Timer0 Scheduler Tick
  * ========================================================= */
 
 volatile uint8 g_tickFlag = 0U;
 
-
 void INTERRUPT_Timer0CompareCallback(void)
 {
     g_tickFlag = 1U;
 }
-
 
 /* =========================================================
  *                    Global Interrupt
@@ -48,7 +44,6 @@ STD_ReturnType INTERRUPT_EnableGlobal(void)
     return E_OK;
 }
 
-
 STD_ReturnType INTERRUPT_DisableGlobal(void)
 {
     CLEAR_BIT(
@@ -59,14 +54,14 @@ STD_ReturnType INTERRUPT_DisableGlobal(void)
     return E_OK;
 }
 
-
 /* =========================================================
- *                       Sense Control
+ *                      Sense Control
  * ========================================================= */
 
 STD_ReturnType EXTI_SetSense(
     uint8 Copy_u8Int,
-    uint8 Copy_u8Sense)
+    uint8 Copy_u8Sense
+)
 {
     switch (Copy_u8Int)
     {
@@ -105,6 +100,10 @@ STD_ReturnType EXTI_SetSense(
 
         case EXTI_INT2:
 
+            /*
+             * INT2 supports only falling-edge and rising-edge
+             * triggering on ATmega32A.
+             */
             if ((Copy_u8Sense != EXTI_FALLING_EDGE) &&
                 (Copy_u8Sense != EXTI_RISING_EDGE))
             {
@@ -135,9 +134,8 @@ STD_ReturnType EXTI_SetSense(
     return E_OK;
 }
 
-
 /* =========================================================
- *                     Clear EXTI Flag
+ *                    Clear EXTI Flag
  * ========================================================= */
 
 STD_ReturnType EXTI_ClearFlag(uint8 Copy_u8Int)
@@ -177,7 +175,6 @@ STD_ReturnType EXTI_ClearFlag(uint8 Copy_u8Int)
 
     return E_OK;
 }
-
 
 /* =========================================================
  *                       Enable EXTI
@@ -236,7 +233,6 @@ STD_ReturnType EXTI_Enable(uint8 Copy_u8Int)
     return E_OK;
 }
 
-
 /* =========================================================
  *                       Disable EXTI
  * ========================================================= */
@@ -279,14 +275,14 @@ STD_ReturnType EXTI_Disable(uint8 Copy_u8Int)
     return E_OK;
 }
 
-
 /* =========================================================
  *                         Callback
  * ========================================================= */
 
 STD_ReturnType EXTI_SetCallback(
     uint8 Copy_u8Int,
-    EXTI_CallbackType Copy_pfCallback)
+    EXTI_CallbackType Copy_pfCallback
+)
 {
     if (Copy_u8Int > EXTI_INT2)
     {
@@ -304,12 +300,10 @@ STD_ReturnType EXTI_SetCallback(
     return E_OK;
 }
 
-
 /* =========================================================
- *                         ISR
+ *                           ISR
  * ========================================================= */
 
-/* INT0: PD2 - Alarm Reset Button */
 ISR(INT0_vect)
 {
     if (EXTI_pfCallBackArr[EXTI_INT0] != NULL)
@@ -318,8 +312,6 @@ ISR(INT0_vect)
     }
 }
 
-
-/* INT1: PD3 - Mode Button */
 ISR(INT1_vect)
 {
     if (EXTI_pfCallBackArr[EXTI_INT1] != NULL)
@@ -328,8 +320,6 @@ ISR(INT1_vect)
     }
 }
 
-
-/* INT2: PB2 - Not used by Smart Greenhouse */
 ISR(INT2_vect)
 {
     if (EXTI_pfCallBackArr[EXTI_INT2] != NULL)
@@ -338,9 +328,11 @@ ISR(INT2_vect)
     }
 }
 
+/* =========================================================
+ *                  Timer0 Compare Match ISR
+ * ========================================================= */
 
-/* Timer0 Compare Match: 10 ms scheduler tick */
 ISR(TIMER0_COMP_vect)
 {
-    g_tickFlag = 1U;
+    SCH_Tick();
 }

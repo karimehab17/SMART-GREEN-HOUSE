@@ -3,15 +3,16 @@
 
 #include "STD_TYPES.h"
 
+
 /* =========================================================
- * System Configuration
+ *                     System Configuration
  * ========================================================= */
 
 #define F_CPU                       8000000UL
 
 
 /* =========================================================
- * GPIO Configuration
+ *                     GPIO Configuration
  * ========================================================= */
 
 /* ---------------- Sensors ---------------- */
@@ -60,10 +61,20 @@
 
 
 /* =========================================================
- * ADC Configuration
+ *                       ADC Configuration
  * ========================================================= */
 
-#define ADC_REFERENCE_AVCC          0U
+/*
+ * Project-level ADC configuration.
+ *
+ * The numeric values correspond to the ATmega32A ADC driver
+ * interface:
+ *     AREF          = 0
+ *     AVCC          = 1
+ *     Internal 2.56 = 3
+ */
+
+#define ADC_REFERENCE_AVCC          1U
 #define ADC_PRESCALER_64            6U
 
 #define SENSOR_ADC_REFERENCE        ADC_REFERENCE_AVCC
@@ -76,7 +87,7 @@
 
 
 /* =========================================================
- * Sensor Scaling
+ *                       Sensor Scaling
  * ========================================================= */
 
 #define TEMP_MIN_C                  0U
@@ -87,7 +98,7 @@
 
 
 /* =========================================================
- * Scheduler Configuration
+ *                    Scheduler Configuration
  * ========================================================= */
 
 #define SCH_TICK_MS                 10U
@@ -112,7 +123,7 @@
 
 
 /* =========================================================
- * Default Runtime Configuration
+ *                Default Runtime Configuration
  * ========================================================= */
 
 #define CFG_MAGIC                   0xA5C3U
@@ -134,25 +145,8 @@
 
 
 /* =========================================================
- * Hysteresis Configuration
+ *                    Alarm Configuration
  * ========================================================= */
-
-#define FAN_ON_THRESHOLD_C          35U
-#define FAN_OFF_THRESHOLD_C         32U
-
-#define PUMP_ON_THRESHOLD_PCT       40U
-#define PUMP_OFF_THRESHOLD_PCT      60U
-
-#define LAMP_ON_THRESHOLD_PCT       25U
-#define LAMP_OFF_THRESHOLD_PCT      40U
-
-
-/* =========================================================
- * Alarm Configuration
- * ========================================================= */
-
-#define ALARM_TEMP_DEFAULT_C        45U
-#define ALARM_SOIL_DEFAULT_PCT      15U
 
 #define ALARM_BUZZER_ON_MS          100U
 #define ALARM_BUZZER_OFF_MS         900U
@@ -165,7 +159,7 @@
 
 
 /* =========================================================
- * Button Configuration
+ *                    Button Configuration
  * ========================================================= */
 
 #define BUTTON_DEBOUNCE_MS          20U
@@ -179,14 +173,14 @@
 
 
 /* =========================================================
- * Pump Protection
+ *                    Pump Protection
  * ========================================================= */
 
 #define PUMP_MAX_RUNTIME_SEC        60U
 
 
 /* =========================================================
- * UART Configuration
+ *                    UART Configuration
  * ========================================================= */
 
 #define UART_BAUD_RATE              9600UL
@@ -197,11 +191,9 @@
 
 #define UART_TX_BUFFER_SIZE         128U
 
+
 /* =========================================================
- * LCD Configuration
- *
- * LCD communication is I2C/AIP.
- * SPI and 74HC595 are NOT used.
+ *                     LCD Configuration
  * ========================================================= */
 
 #define LCD_I2C_ADDRESS             0x3EU
@@ -224,7 +216,7 @@
 
 
 /* =========================================================
- * Buzzer Configuration
+ *                    Buzzer Configuration
  * ========================================================= */
 
 #define BUZZER_PWM_DUTY_PERCENT     50U
@@ -232,17 +224,14 @@
 
 
 /* =========================================================
- * EEPROM Configuration
- *
- * Internal ATmega32A EEPROM is used.
- * No SPI EEPROM is used.
+ *                   EEPROM Configuration
  * ========================================================= */
 
-#define EEPROM_CONFIG_ADDRESS       0x00U
+#define EEPROM_CONFIG_ADDRESS       0x0000U
 
 
 /* =========================================================
- * Sensor Identifiers
+ *                    Sensor Identifiers
  * ========================================================= */
 
 typedef enum
@@ -255,7 +244,7 @@ typedef enum
 
 
 /* =========================================================
- * System Runtime Data
+ *                   System Runtime Data
  * ========================================================= */
 
 typedef struct
@@ -279,7 +268,7 @@ typedef struct
 
 
 /* =========================================================
- * Persistent Configuration
+ *                  Persistent Configuration
  *
  * Required size = 13 bytes
  * ========================================================= */
@@ -308,7 +297,7 @@ typedef struct
 
 
 /* =========================================================
- * Sensor Scaling Macros
+ *                    Sensor Scaling Macros
  * ========================================================= */
 
 #define TEMP_SCALE(raw) \
@@ -319,7 +308,7 @@ typedef struct
 
 
 /* =========================================================
- * Actuator Logic Levels
+ *                  Actuator Logic Levels
  * ========================================================= */
 
 #define ACTUATOR_ON                1U
@@ -327,7 +316,7 @@ typedef struct
 
 
 /* =========================================================
- * Configuration Validation
+ *                Configuration Validation
  * ========================================================= */
 
 #define CFG_MIN_TEMP_HYSTERESIS_C  2U

@@ -30,19 +30,29 @@ STD_ReturnType INTERRUPT_DisableGlobal(void);
 
 /* ==================== External Interrupt ==================== */
 
-STD_ReturnType EXTI_SetSense( uint8 Copy_u8Int,uint8 Copy_u8Sense);
+STD_ReturnType EXTI_SetSense(
+    uint8 Copy_u8Int,
+    uint8 Copy_u8Sense
+);
 
-STD_ReturnType EXTI_Enable( uint8 Copy_u8Int);
+STD_ReturnType EXTI_Enable(
+    uint8 Copy_u8Int
+);
 
-STD_ReturnType EXTI_Disable(uint8 Copy_u8Int);
+STD_ReturnType EXTI_Disable(
+    uint8 Copy_u8Int
+);
 
-STD_ReturnType EXTI_ClearFlag( uint8 Copy_u8Int);
+STD_ReturnType EXTI_ClearFlag(
+    uint8 Copy_u8Int
+);
 
-STD_ReturnType EXTI_SetCallback(uint8 Copy_u8Int, EXTI_CallbackType Copy_pfCallback);
+STD_ReturnType EXTI_SetCallback(
+    uint8 Copy_u8Int,
+    EXTI_CallbackType Copy_pfCallback
+);
 
 /* ==================== Timer0 Scheduler Tick ==================== */
-
-extern volatile uint8 g_tickFlag;
 
 void INTERRUPT_Timer0CompareCallback(void);
 

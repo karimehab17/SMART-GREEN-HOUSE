@@ -11,8 +11,8 @@
 | Field | Value |
 |-------|-------|
 | **Project code** | `PRJ-01-GREENHOUSE` |
-| **Team size** | 2 students |
-| **Team Name** | Karim Ehab & Ahmed Mohsen |
+| **Team size** | 1 students |
+| **Team Name** | Karim Ehab Gamal |
 | **Build window** | Days 11 – 15 (August 30 – September 17 , 2026) |
 | **Demo & submission** | September 17 , 2026 |
 | **Dominant skill** | Multi-sensor closed-loop control with hysteresis |
@@ -37,8 +37,7 @@ comfortable with nobody watching them.**
 | Potentiometer 3 | Light level | A grow **lamp** |
 
 Three inputs, three outputs, three completely independent rules. Plus an LCD to
-show what is happening, a serial link to a PC, and a **74HC595 shift register**
-that drives eight status LEDs from just three pins.
+show what is happening, a serial link to a PC, and an LCD connected directly through I²C.
 
 ### What the firmware does
 
@@ -79,14 +78,14 @@ greenhouse that relay is dead within days, and the noise is unbearable.
 
 ```
    Turn the fan ON  at 35 °C
-   Turn the fan OFF at 33 °C
+   Turn the fan OFF at 32 °C
 ```
 
-Once the fan is on, the temperature now has to fall a full **2 °C** before it
+Once the fan is on, the temperature now has to fall a full **3 °C** before it
 switches off again. The little wobble cannot reach that far, so the fan
 switches cleanly — once on, once off.
 
-That 2 °C gap is called **hysteresis**. Every one of the three loops in this
+That 3 °C gap is called **hysteresis**. Every one of the three loops in this
 project needs its own, and you have to show the difference working, on the LCD
 and in the serial log.
 
@@ -95,13 +94,13 @@ and in the serial log.
 - An **LCD** shows temperature, moisture, light and which machines are running.
 - A **serial link** sends a status line every 5 s and accepts typed commands, so
   you can change a threshold without recompiling.
-- A **74HC595** drives an 8-LED status bar over SPI: one LED per loop state,
-  plus alarm and mode indicators, all from three pins instead of eight.
+- The **AiP31068** LCD controller communicates directly with the ATmega32A over I²C,
+  using the two TWI lines and no external I/O expander.
 
-> **Note on saving settings.** There is no non-volatile memory in this project —
-> SimulIDE has no part that could provide it. Every threshold starts from the
-> compiled-in default on each power-up, and you change them live over the serial
-> console. See the book README, §4.
+> **Note on saving settings.** The project uses the **internal ATmega32A EEPROM**
+> for the configuration record. No external EEPROM is used. The firmware
+> validates the record using the magic value, version and checksum, and restores
+> the compiled-in defaults when the record is invalid.
 
 ---
 
@@ -110,11 +109,10 @@ and in the serial log.
 1. Drive three ADC channels from one multiplexer without cross-talk.
 2. Implement hysteresis (Schmitt-trigger) control in software and prove it
    eliminates actuator chatter.
-3. Build a 10 ms cooperative scheduler on Timer0 CTC and run five tasks at four
-   different periods from it.
+3. Build a 10 ms cooperative scheduler on Timer0 CTC and run seven tasks at different periods from it.
 4. Validate a configuration record against a magic number and
    checksum, and restore it safely at boot.
-5. Drive a 16×2 LCD over I2C through a PCF8574 expander in 4-bit mode.
+5. Drive a 16×2 LCD through the **AiP31068** controller over I²C.
 6. Design a five-state finite state machine with a documented transition table
    and implement it as a `switch` dispatcher.
 7. Define a line-oriented UART protocol and write a parser that survives
@@ -132,7 +130,7 @@ On completion the student can:
 | LO-2 | Explain why a single threshold causes relay chatter, and size a hysteresis band from the noise floor |
 | LO-3 | Convert a 10-bit ADC code into engineering units using integer arithmetic only (no `float`) |
 | LO-4 | Write a non-blocking periodic task table and justify why `_delay_ms()` is banned in the super-loop |
-| LO-5 | Sequence a 74HC595 correctly: shift eight bits over SPI, **then** pulse `RCLK`, and explain why the order cannot be reversed |
+| LO-5 | Configure and use the **AiP31068** LCD through I²C with the correct command/data control bytes |
 | LO-6 | Validate a configuration record with a magic word and 8-bit checksum, and fall back to defaults on corruption |
 | LO-7 | Implement and defend a finite state machine against its transition table |
 
@@ -146,7 +144,7 @@ On completion the student can:
 | Architecture & state machine design | 4 | Day 11 |
 | GPIO + ADC bring-up | 6 | Day 12 |
 | Timer, scheduler, control loops | 6 | Day 13 |
-| LCD, 74HC595 status bar, UART integration | 7 | Day 14 |
+| LCD (AiP31068), UART integration | 7 | Day 14 |
 | Testing & debugging | 4 | Day 15 |
 | Documentation, report, video | 4 | Day 15 + evening |
 | **Total** | **34 h** | |
@@ -163,12 +161,9 @@ On completion the student can:
 | 4 | LED + 330 Ω | 3 | `Led` | Fan, Pump, Lamp indicators |
 | 5 | LED (red) + 330 Ω | 1 | `Led` | Alarm |
 | 6 | Buzzer | 1 | `Buzzer` | Audible alarm |
-| 7 | 16×2 LCD + PCF8574 | 1 | `Lcd` + `I2CToParallel` | Local display |
-| 8 | 74HC595 shift register | 1 | `74HC595` | 8-LED status bar (loop states + alarm) |
-| 9 | Serial terminal | 1 | `SerialPort` | Telemetry + console |
-| 10 | Pull-up resistors 4.7 kΩ | 2 | `Resistor` | I2C SDA/SCL |
-
----
+| 7 | 16×2 LCD with AiP31068 | 1 | `AiP31068_i2c-51` | Local display over I²C |
+| 8 | Serial terminal | 1 | `SerialPort` | Telemetry + console |
+| 9 | Pull-up resistors 4.7 kΩ | 2 | `Resistor` | I²C SDA/SCL |
 
 ## 7. Pin Map
 
@@ -181,12 +176,8 @@ On completion the student can:
 | Pump output | 2 | `PB1` | Out | Active high |
 | Lamp output | 3 | `PB2` | Out | Active high |
 | Alarm LED | 4 | `PB3` | Out | Active high |
-| 74HC595 `RCLK` | 5 | `PB4` | Out | Rising edge latches the 8 status LEDs |
-| SPI `MOSI` | 6 | `PB5` | Out | |
-| SPI `MISO` | 7 | `PB6` | In | |
-| SPI `SCK` | 8 | `PB7` | Out | |
-| I2C `SCL` | 22 | `PC0` | Out | 4.7 kΩ pull-up |
-| I2C `SDA` | 23 | `PC1` | Bidir | 4.7 kΩ pull-up |
+| I²C `SCL` | 22 | `PC0` | Bidir | 4.7 kΩ pull-up |
+| I²C `SDA` | 23 | `PC1` | Bidir | 4.7 kΩ pull-up |
 | Buzzer | 21 | `PD7` / OC2 | Out | 2 kHz PWM in bonus |
 | USART `RXD` | 14 | `PD0` | In | 9600 8N1 |
 | USART `TXD` | 15 | `PD1` | Out | 9600 8N1 |
@@ -210,10 +201,8 @@ scheduler, never in the ISR.
 | **Timer2** | Fast PWM (bonus) | Buzzer tone |
 | **INT0 / INT1** | Falling edge (`ISC01=1`, `ISC11=1`) | Alarm reset, mode change |
 | **USART** | 9600 8N1, RX interrupt on, TX polled | Telemetry + console |
-| **SPI** | Master, Mode 0, f<sub>osc</sub>/16 | 74HC595 shift register |
-| **I2C (TWI)** | Master, 100 kHz, `TWBR = 32` | PCF8574 → LCD |
-
----
+| **I2C (TWI)** | Master, 100 kHz, `TWBR = 32`, 7-bit address `0x3E` | AiP31068 LCD |
+| **Internal EEPROM** | Configuration record at `0x0000` | Save / restore thresholds |
 
 ## 9. Software Architecture
 
@@ -229,10 +218,10 @@ scheduler, never in the ISR.
 │        └──────────────┴──── scheduler (10 ms) ────────┘           │
 ├───────────────────────────────────────────────────────────────────┤
 │ HAL                                                               │
-│  sensors.c   actuators.c   lcd_i2c.c   shiftreg.c   buttons.c   │
+│  sensors.c   actuators.c   lcd_i2c.c   buttons.c                 │
 ├───────────────────────────────────────────────────────────────────┤
 │ MCAL                                                              │
-│  dio.c   adc.c   timer.c   exti.c   usart.c   spi.c   i2c.c       │
+│  dio.c   adc.c   timer.c   exti.c   usart.c   i2c.c              │
 ├───────────────────────────────────────────────────────────────────┤
 │ LIB    STD_TYPES.h   BIT_MATH.h   ring_buffer.c                   │
 └───────────────────────────────────────────────────────────────────┘
@@ -250,8 +239,7 @@ scheduler, never in the ISR.
 | `sensors` | ADC channel scan + median filter + scaling | `SEN_Scan`, `SEN_GetTempC`, `SEN_GetSoilPct`, `SEN_GetLightPct` |
 | `actuators` | Fan/pump/lamp/alarm abstraction | `ACT_Set(actuator, state)` |
 | `buttons` | 20 ms debounce, edge flags | `BTN_Poll`, `BTN_WasPressed` |
-| `lcd_i2c` | PCF8574 nibble protocol, screen painting | `LCD_Init`, `LCD_Goto`, `LCD_Print`, `LCD_PrintNum` |
-| `shiftreg` | Builds the status byte, shifts it, latches it | `SR_Init`, `SR_Set`, `SR_Refresh` |
+| `lcd_i2c` | AiP31068 I²C command/data protocol, screen painting | `LCD_Init`, `LCD_Goto`, `LCD_Print`, `LCD_PrintNum` |
 
 ### 9.3 Data flow
 
@@ -268,13 +256,16 @@ scheduler, never in the ISR.
              buttons.c ─┘        console.c ◀── USART RX ring buffer
                                     │
                                     ▼
-                              shiftreg ──▶ 74HC595
+
 ```
 
 ### 9.4 Concurrency contract
 
+**Interface rule:** The LCD uses the AiP31068 controller directly over I²C. No external I/O expander or additional serial peripheral hardware is part of this project.
+
+
 - ISRs may **only** set `volatile` flags, push bytes into the RX ring buffer, or
-  increment the tick counter. No LCD, no SPI, no UART TX inside an ISR.
+  increment the tick counter. No LCD, no I²C, no UART TX inside an ISR.
 - `SysData` is written by one task (`TASK_Sample`) and read by all others. Reads
   of multi-byte fields from outside the tick context must be wrapped in
   `ATOMIC_BLOCK` or a cli/sei pair.
@@ -529,31 +520,28 @@ Every **5 s** the system **shall** transmit one telemetry frame at 9600 8N1 (see
 
 ### FR-10 — Save configuration
 
-Pressing **Save** (IN-6) **shall** write the current `Config_t` to the 74HC595 at
-address `0x0000`.
+Pressing **Save** (IN-6) **shall** write the current `Config_t` to the ATmega32A internal EEPROM
+at the configured EEPROM address.
 
 **Acceptance criteria**
-- Sequence is: shift the byte out over SPI, **then** one rising edge on `RCLK`.
-  Latching mid-transfer shows a half-updated pattern on the LEDs.
-- Checksum is recomputed before the write.
-- After writing, the record is read back and compared byte-for-byte.
+- The checksum is recomputed before the write. The EEPROM record is written
+  as a complete fixed-size configuration record.
+- After writing, the record is read back from EEPROM and compared byte-for-byte.
 - LCD shows `SAVED OK` or `SAVE FAIL` for 1 s; UART logs `EVT SAVE OK` /
   `EVT SAVE FAIL`.
 - Total save operation ≤ 50 ms and must not block the tick.
 
 ### FR-11 — Restore configuration at boot
 
-At startup the system **shall** build `Config_t` from the compiled-in defaults in
-`PROGMEM` and accept it only if `magic == CFG_MAGIC`, `version == CFG_VERSION`
+At startup the system **shall** read `Config_t` from the internal EEPROM and accept it only if `magic == CFG_MAGIC`, `version == CFG_VERSION`
 and the checksum is
 correct.
 
 **Acceptance criteria**
 - On any validation failure the firmware loads the compiled-in defaults and logs
-  `EVT CFG DEFAULT`. (The check still earns its place: it catches a corrupted
-  `PROGMEM` image and a version mismatch after a firmware update.)
+  `EVT CFG DEFAULT`.
 - Boot-to-first-LCD-frame ≤ 500 ms.
-- Power-cycling the simulation preserves a previously saved threshold.
+- Power-cycling the simulation preserves a previously saved threshold when EEPROM is supported by the simulation.
 
 ### FR-12 — Manual mode
 
@@ -614,7 +602,7 @@ the `STATUS` response.
 | **NFR-05** | No floating-point arithmetic anywhere. Fixed-point / integer only. |
 | **NFR-06** | No magic numbers. Every threshold, period and pin number is a `#define`, `enum` or `const` in `config.h`. |
 | **NFR-07** | The layer rule holds: only `MCAL/*.c` touches hardware registers. |
-| **NFR-08** | ISRs are ≤ 10 lines and contain no loops, no I2C, no SPI, no UART TX. |
+| **NFR-08** | ISRs are ≤ 10 lines and contain no loops, no I²C, no UART TX. |
 | **NFR-09** | All shared variables written by an ISR are `volatile`; multi-byte accesses from the main context are atomic. |
 | **NFR-10** | Fixed-width types from `<stdint.h>` throughout; no bare `int` in data structures. |
 | **NFR-11** | Static RAM usage ≤ 1 KB of the 2 KB available (check with `avr-size`). |
@@ -648,7 +636,7 @@ the `STATUS` response.
                    ▼
             ┌──────────────────────────────┐
             │ MCAL init: DIO, ADC, Timer0, │
-            │ EXTI, USART, SPI, I2C        │
+            │ EXTI, USART, I2C            │
             └──────┬───────────────────────┘
                    ▼
             ┌──────────────────────────────┐
@@ -673,7 +661,6 @@ the `STATUS` response.
         ║  every 200 ms → run 3 control loops      ║
         ║  every 500 ms → repaint LCD              ║
         ║  every   5 s  → send telemetry frame     ║
-        ║  every 500 ms → refresh 74HC595 status   ║
         ╚══════════════════════════════════════════╝
 ```
 
@@ -819,9 +806,7 @@ Cooperative, non-preemptive. Timer0 CTC ISR sets `g_tick`; `main()` dispatches.
 | T-6 | `Task_Report` | 5 s | 7 | 2 ms | Build + queue telemetry |
 | T-7 | `Task_Console` | 20 ms | 2 | 500 µs | Parse one complete line |
 
-\* The status-bar task shifts one byte over SPI and then pulses `RCLK` once. The
-latch pulse is never issued part-way through a transfer, or a half-updated
-pattern appears on the LEDs.
+\* 
 
 **Offsets** stagger heavy tasks so they never land on the same tick. Sum of all
 work in the worst tick must stay under 10 ms — show the arithmetic in your
@@ -858,26 +843,25 @@ value and a screenshot reference.
 | TC-20 | Manual override | `MANUAL`, then `FAN ON` | Fan on regardless of temperature |
 | TC-21 | Manual rejects in AUTO | `AUTO`, then `FAN ON` | `ERR MODE` |
 | TC-22 | Alarm active in manual | `MANUAL`, raise to 47 °C | Alarm still fires |
-| TC-23 | Status bar over SPI | Drive each loop on and off | Correct LED per loop; no flicker, no partial pattern |
-| TC-24 | Console unknown verb | Send `FOO` | `ERR CMD` |
-| TC-25 | Console long line | Send 40 chars | `ERR LONG`, no reset |
-| TC-26 | Console bad range | `SET TEMPON 99` | `ERR RANGE`, value unchanged |
-| TC-27 | Hysteresis guard | `SET TEMPOFF 36` while `TEMPON`=35 | `ERR RANGE` |
-| TC-28 | Telemetry cadence | Capture 60 s | 12 frames ±1, checksum valid on all |
-| TC-29 | Telemetry integrity | Verify `*XX` on 100 frames | 100 % correct |
-| TC-30 | Button debounce | Rapid presses on Mode | One toggle per physical press |
-| TC-31 | Factory reset | Hold Save + Reset 3 s | Defaults restored, countdown shown |
-| TC-32 | Factory reset abort | Release at 2 s | No change |
-| TC-33 | Sensor fault | Short ADC0 to GND for 6 s | `SENSOR FAULT 0`, thermal loop safe |
-| TC-34 | Sensor recovery | Return pot to mid | Fault clears within 1 s |
-| TC-35 | Tick jitter | Toggle pin in tick ISR, scope it | 10 ms ±1 ms |
-| TC-36 | CPU load | Measure busy pin duty | ≤ 60 % |
-| TC-37 | RAM budget | `avr-size -C --mcu=atmega32` | `.data + .bss` ≤ 1024 B |
-| TC-38 | LCD flicker | Watch 60 s | No visible clear-and-redraw |
-| TC-39 | Pump run-time counter | Run pump 30 s, `STATUS` | `PUMPSEC` ≈ 30 |
-| TC-40 | Long soak | Run 10 min with random pot moves | No hang, no missed frames |
-| TC-41 | **No heap linked** | `avr-nm main.elf \| grep -i malloc` | Prints nothing |
-| TC-42 | **No recursion** | Inspect the call graph; state the deepest chain | Acyclic, depth stated in the report |
+| TC-23 | Console unknown verb | Send `FOO` | `ERR CMD` |
+| TC-24 | Console long line | Send 40 chars | `ERR LONG`, no reset |
+| TC-25 | Console bad range | `SET TEMPON 99` | `ERR RANGE`, value unchanged |
+| TC-26 | Hysteresis guard | `SET TEMPOFF 36` while `TEMPON`=35 | `ERR RANGE` |
+| TC-27 | Telemetry cadence | Capture 60 s | 12 frames ±1, checksum valid on all |
+| TC-28 | Telemetry integrity | Verify `*XX` on 100 frames | 100 % correct |
+| TC-29 | Button debounce | Rapid presses on Mode | One toggle per physical press |
+| TC-30 | Factory reset | Hold Save + Reset 3 s | Defaults restored, countdown shown |
+| TC-31 | Factory reset abort | Release at 2 s | No change |
+| TC-32 | Sensor fault | Short ADC0 to GND for 6 s | `SENSOR FAULT 0`, thermal loop safe |
+| TC-33 | Sensor recovery | Return pot to mid | Fault clears within 1 s |
+| TC-34 | Tick jitter | Toggle pin in tick ISR, scope it | 10 ms ±1 ms |
+| TC-35 | CPU load | Measure busy pin duty | ≤ 60 % |
+| TC-36 | RAM budget | `avr-size -C --mcu=atmega32` | `.data + .bss` ≤ 1024 B |
+| TC-37 | LCD flicker | Watch 60 s | No visible clear-and-redraw |
+| TC-38 | Pump run-time counter | Run pump 30 s, `STATUS` | `PUMPSEC` ≈ 30 |
+| TC-39 | Long soak | Run 10 min with random pot moves | No hang, no missed frames |
+| TC-40 | **No heap linked** | `avr-nm main.elf \| grep -i malloc` | Prints nothing |
+| TC-41 | **No recursion** | Inspect the call graph; state the deepest chain | Acyclic, depth stated in the report |
 
 ---
 
@@ -906,7 +890,7 @@ Maximum **+20** total; final score capped at 100.
 | 2 | `Simulation/greenhouse.sim1` | Opens and runs in SimulIDE without edits |
 | 3 | `Docs/flowchart.png` | Matches §16 |
 | 4 | `Docs/state_machine.png` | Matches §17, includes the transition table |
-| 5 | `Docs/test_report.md` | All 42 `TC` rows with results and evidence |
+| 5 | `Docs/test_report.md` | All 41 `TC` rows with results and evidence |
 | 6 | Final report | 15 – 20 pages: analysis, design decisions, hysteresis maths, timing budget, problems and fixes |
 | 7 | Demo video | 5 – 10 min narrated: boot, each loop, alarm, save/restore, console |
 | 8 | Live defence | Every member answers questions on any file |
@@ -922,14 +906,13 @@ Maximum **+20** total; final score capped at 100.
 | Timer | 10 | 10 ms tick within ±1 ms; used for scheduler, debounce and timeouts |
 | Interrupts | 5 | Short ISRs, `volatile` discipline, debounce outside the ISR |
 | USART | 10 | Exact frame with valid checksum; parser survives every TC-24…27 |
-| SPI | 10 | 74HC595 status bar correct: shift then latch, no flicker, no partial pattern |
-| I2C | 10 | LCD via PCF8574, no flicker, correct 4-bit nibble sequencing |
+| I2C | 20 | LCD via AiP31068, correct command/data sequencing, no flicker |
 | Application logic | 20 | All three hysteresis loops correct; FSM matches §17 exactly |
 | Architecture | 10 | Layer rule respected, `config.h` holds every constant, no magic numbers |
-| Testing | 10 | 42 test cases executed with evidence |
+| Testing | 10 | 41 test cases executed with evidence |
 | Documentation & demo | 10 | Diagrams match code; every member can defend any module |
 | **Total** | **100** | Bonus up to +20, capped at 100 |
 
 ---
 
-*Prepared by: Karim Ehab Gamal | Ahmed Mohsen El-Shabrawy*
+*Prepared by: Karim Ehab Gamal*

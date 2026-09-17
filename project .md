@@ -38,7 +38,7 @@ The exact actuator driver stage (relay/transistor/H-bridge) depends on the final
 ### Display
 
 - **16×2 Character LCD**
-- **PCF8574 I2C I/O Expander**
+- **AiP31068**
   - Allows the LCD to communicate with the ATmega32A through I2C using fewer MCU pins.
 
 ### Buttons
@@ -93,7 +93,7 @@ UART is used for telemetry and text commands.
   - Handles UART communication at 9600 8N1.
 
 - **I2C / TWI Driver** (`i2c.c / i2c.h`)
-  - Provides I2C communication with the PCF8574 LCD interface.
+  - Provides I2C communication with the AiP31068 LCD.
 
 > **Removed:** SPI Driver, SPI EEPROM Driver, and any other SPI-dependent module/hardware.
 
@@ -221,13 +221,20 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
  ## 9. Team Members & Responsibilities
 
 ### Member 1 (Karim Ehab Gamal)
+
 #### MCAL Drivers
+
 - **GPIO Driver**
   - Configures GPIO pins and handles digital input/output operations.
+
 - **ADC Driver**
   - Handles ADC0, ADC1, and ADC2 for the three analog sensors.
+
 - **Timer Driver**
   - Configures Timer0 in CTC mode for the 10 ms system tick.
+
+- **Interrupt / EXTI Driver**
+  - Handles INT0 and INT1 external interrupts.
 
 - **UART Driver**
   - Handles UART communication at 9600 8N1.
@@ -236,6 +243,7 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
   - Master mode, 100 kHz, TWBR = 32, used for communication between the ATmega32 and PCF8574 to control the LCD..
 
 #### HAL
+
 - **Sensors Driver**
   - Reads temperature, soil moisture, and light sensors through the ADC.
   - Handles sensor scaling and filtering.
@@ -246,31 +254,28 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 - **LCD I2C Driver**
    - Controls the 16×2 LCD through the built-in I2C interface of the AiP31068 LCD controller.
 
-#### Application
-- **Scheduler**
-  - Runs system tasks according to their configured periods.
-- **Control**
-  - Implements hysteresis control for the Fan, Pump, and Lamp.
-
-### Member 2 (Ahmed Mohsen El-Shabrawy)
-#### MCAL Drivers
-- **Interrupt / EXTI Driver**
-  - Handles INT0 and INT1 external interrupts.
-
-
-#### HAL
 - **Buttons Driver**
   - Handles Mode, Save, and Alarm Reset buttons with software debouncing.
 
 #### Application
-- **Greenhouse FSM**
+
+- **Scheduler**
+  - Runs system tasks according to their configured periods.
+
+- **Control**
+  - Implements hysteresis control for the Fan, Pump, and Lamp.
+
+  **Greenhouse FSM**
   - Manages system states and transitions between AUTO, MANUAL, ALARM, CONFIG, and initialization states.
+
 - **Report**
   - Sends greenhouse status through UART every 5 seconds.
+
 - **Console**
   - Receives and parses UART commands.
 
-### Shared Responsibilities
+### Responsibilities
+
 - **System Integration**
   - Integrate all MCAL, HAL, and Application modules.
 - **Testing & Debugging**
@@ -294,9 +299,9 @@ The HAL layer uses MCAL APIs, while the Application layer uses HAL and service A
 - [x] Alarm reset works. — GPIO Driver + INTERRUPT Driver + Buttons + Greenhouse FSM + Actuators
 - [x] Mode button works. — GPIO Driver + INTERRUPT Driver + Buttons + Greenhouse FSM 
 - [x] LCD displays live values and system state. —I2C/TWI Driver + LCD Driver + ٌReport
-- [ ] UART sends status every 5 seconds. —UART Driver + Timer0 Driver + Report + Console
-- [ ] UART commands are received correctly. —UART Driver + Console + Greenhouse FSM
+- [x] UART sends status every 5 seconds. —UART Driver + Timer0 Driver + Report + Console
+- [x] UART commands are received correctly. —UART Driver + Console + Greenhouse FSM
 - [x] No SPI-related code or hardware remains.
 
 
-**Prepared by: Karim Ehab Gamal | Ahmed Mohsen El-Shabrawy**
+**Prepared by: Karim Ehab Gamal**

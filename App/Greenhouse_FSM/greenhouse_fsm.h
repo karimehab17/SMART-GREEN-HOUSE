@@ -34,6 +34,9 @@ FSM_StatusType GHSM_RequestApply(void);
 FSM_StatusType GHSM_RequestSetConfig(
     const Config_t *pConfig);
 
-FSM_StatusType GHSM_RequestMode(GreenhouseStateType Copy_enState);
+FSM_StatusType GHSM_RequestMode(
+    GreenhouseStateType Copy_enState);
+
+FSM_StatusType GHSM_SaveConfig(void);
 
 #endif /* GREENHOUSE_FSM_H */

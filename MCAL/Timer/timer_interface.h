@@ -7,27 +7,28 @@
  *                         TIMER0
  * ========================================================= */
 
-/* Timer0 Modes */
+/* Timer0 Waveform Generation Modes */
 
-#define TIMER0_NORMAL        0U
-#define TIMER0_PHASE_CORRECT 1U
-#define TIMER0_CTC           2U
-#define TIMER0_FAST_PWM      3U
+#define TIMER0_NORMAL              0U
+#define TIMER0_PHASE_CORRECT       1U
+#define TIMER0_CTC                 2U
+#define TIMER0_FAST_PWM            3U
 
-/* Timer0 Prescaler */
+/* Timer0 Clock Selection */
 
-#define TIMER0_STOP          0U
-#define TIMER0_PRESC_1       1U
-#define TIMER0_PRESC_8       2U
-#define TIMER0_PRESC_64      3U
-#define TIMER0_PRESC_256     4U
-#define TIMER0_PRESC_1024    5U
+#define TIMER0_STOP                0U
+#define TIMER0_PRESC_1             1U
+#define TIMER0_PRESC_8             2U
+#define TIMER0_PRESC_64            3U
+#define TIMER0_PRESC_256           4U
+#define TIMER0_PRESC_1024          5U
 
 /* Interrupt State */
 
-#define TIMER_INTERRUPT_DISABLE  0U
-#define TIMER_INTERRUPT_ENABLE   1U
+#define TIMER_INTERRUPT_DISABLE    0U
+#define TIMER_INTERRUPT_ENABLE     1U
 
+/* Timer0 APIs */
 
 STD_ReturnType TIMER0_Init(uint8 Copy_u8Mode);
 
@@ -46,8 +47,10 @@ STD_ReturnType TIMER0_SetCompareInterrupt(uint8 Copy_u8State);
 
 STD_ReturnType TIMER2_PWM(uint8 Copy_u8DutyPercent);
 
+
 STD_ReturnType TIMER2_BuzzerTone(uint16 Copy_u16FrequencyHz);
 
+/* Stop Timer2 output and clock. */
 STD_ReturnType TIMER2_Stop(void);
 
 #endif /* TIMER_INTERFACE_H */

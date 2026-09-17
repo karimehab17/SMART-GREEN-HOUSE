@@ -174,12 +174,19 @@ STD_ReturnType RPT_Init(SysData_t *pSysData)
     return E_OK;
 }
 
-
 STD_ReturnType RPT_Update(void)
 {
     if (g_pSysData == NULL)
     {
         return E_NOK;
+    }
+
+    if (g_pSysData->pumpOn == 1U)
+    {
+        if (g_pumpRuntimeSec < 65535U)
+        {
+            g_pumpRuntimeSec++;
+        }
     }
 
     return RPT_SendStatus();
@@ -202,11 +209,17 @@ STD_ReturnType RPT_SendStatus(void)
             (const uint8 *)"$GH,T="
         );
 
-    Local_u16Index =
-        RPT_AppendNumber(
-            Local_u16Index,
-            g_pSysData->tempC
-        );
+Local_u16Index =
+    RPT_AppendText(
+        Local_u16Index,
+        (const uint8 *)",PUMPSEC="
+    );
+
+Local_u16Index =
+    RPT_AppendNumber(
+        Local_u16Index,
+        g_pumpRuntimeSec
+    );
 
     Local_u16Index =
         RPT_AppendText(
@@ -307,7 +320,7 @@ STD_ReturnType RPT_SendStatus(void)
     g_frameBuffer[Local_u16Index] = '\0';
 
     Local_u8Checksum =
-        RPT_CalculateChecksum(g_frameBuffer);
+    RPT_CalculateChecksum(&g_frameBuffer[1]);
 
     g_frameBuffer[Local_u16Index++] = '*';
 

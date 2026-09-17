@@ -31,18 +31,6 @@ static uint8 g_manualMode = 0U;
 static uint8 g_alarmActive = 0U;
 
 
-/* =========================================================
- * Update Test LEDs
- *
- * PB5 -> AUTO
- * PB6 -> MANUAL
- * PB7 -> ALARM
- *
- * LEDs are Active-Low:
- * LOW  = ON
- * HIGH = OFF
- * ========================================================= */
-
 static void Test_UpdateLEDs(void)
 {
     /* Alarm has highest priority */
@@ -221,11 +209,6 @@ ISR(TIMER0_COMP_vect)
 {
     SCH_Tick();
 }
-
-
-/* =========================================================
- * Main
- * ========================================================= */
 
 int main(void)
 {
